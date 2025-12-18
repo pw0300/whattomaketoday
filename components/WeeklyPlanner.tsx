@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Dish, DayPlan, VibeMode, UserProfile } from '../types';
 import { DAYS_OF_WEEK } from '../constants';
-import { RefreshCw, Zap, Coffee, RotateCw, Send } from 'lucide-react';
+import { RefreshCw, Zap, Coffee, RotateCw, Send, Target } from 'lucide-react';
 
 interface Props {
   approvedDishes: Dish[];
@@ -74,8 +74,10 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
   const filterPoolByMode = (targetMode: VibeMode) => {
     let pool = [...approvedDishes];
     if (targetMode === 'Strict') {
+      // Per-meal target is roughly 40-50% of daily target
       pool = pool.filter(d => 
-        d.macros.calories <= (userProfile.dailyTargets.calories / 2)
+        d.macros.calories <= (userProfile.dailyTargets.calories * 0.5) &&
+        d.macros.protein >= (userProfile.dailyTargets.protein * 0.3)
       );
     } else if (targetMode === 'Comfort') {
       const staples = pool.filter(d => d.isStaple);
@@ -110,6 +112,19 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
     generatePlan(newMode);
   };
 
+  // Performance Stats for current plan
+  const planStats = useMemo(() => {
+    let totalCal = 0;
+    let totalProt = 0;
+    weekPlan.forEach(d => {
+      totalCal += (d.lunch?.macros.calories || 0) + (d.dinner?.macros.calories || 0);
+      totalProt += (d.lunch?.macros.protein || 0) + (d.dinner?.macros.protein || 0);
+    });
+    const avgCal = totalCal / 7;
+    const avgProt = totalProt / 7;
+    return { avgCal, avgProt };
+  }, [weekPlan]);
+
   return (
     <div className="flex flex-col h-full bg-paper">
       {/* Header */}
@@ -117,11 +132,11 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
         <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-black uppercase text-ink">Run of Show</h2>
             <div className="flex items-center gap-2">
-                <span className="w-3 h-3 bg-green-500 border border-ink"></span>
-                <span className="font-mono text-xs uppercase">Menu Active</span>
+                <span className={`w-3 h-3 border border-ink ${mode === 'Strict' ? 'bg-brand-500' : 'bg-green-500'}`}></span>
+                <span className="font-mono text-xs uppercase">{mode} Mode</span>
             </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 mb-4">
           {(['Strict', 'Comfort', 'Explorer'] as VibeMode[]).map((m) => (
             <button
               key={m}
@@ -133,6 +148,28 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
               {m}
             </button>
           ))}
+        </div>
+
+        {/* Target Indicator */}
+        <div className="bg-white border-2 border-ink p-3 shadow-hard-sm flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <Target size={16} className="text-brand-600" />
+            <span className="font-mono text-[10px] uppercase font-bold">Plan Efficiency</span>
+          </div>
+          <div className="flex gap-4">
+            <div className="text-right">
+              <p className="font-mono text-[8px] text-gray-400 uppercase">Avg Energy</p>
+              <p className={`font-mono text-[10px] font-bold ${planStats.avgCal > userProfile.dailyTargets.calories ? 'text-red-600' : 'text-ink'}`}>
+                {Math.round(planStats.avgCal)} / {userProfile.dailyTargets.calories}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="font-mono text-[8px] text-gray-400 uppercase">Avg Protein</p>
+              <p className={`font-mono text-[10px] font-bold ${planStats.avgProt < userProfile.dailyTargets.protein ? 'text-blue-600' : 'text-brand-600'}`}>
+                {Math.round(planStats.avgProt)}g / {userProfile.dailyTargets.protein}g
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 

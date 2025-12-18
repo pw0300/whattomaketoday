@@ -1,7 +1,6 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import { Dish, Allergen, VibeMode, ImageSize, Cuisine } from '../types';
 
-const apiKey = process.env.API_KEY || ''; 
+import { GoogleGenAI, Type } from "@google/genai";
+import { Dish, Allergen, VibeMode, ImageSize, DietType } from '../types';
 
 // Helper to convert Blob/File to Base64
 const fileToBase64 = (file: File): Promise<string> => {
@@ -26,6 +25,7 @@ const DISH_SCHEMA = {
     description: { type: Type.STRING },
     primaryIngredient: { type: Type.STRING },
     cuisine: { type: Type.STRING },
+    dietType: { type: Type.STRING, enum: ['Vegetarian', 'Non-Vegetarian', 'Eggetarian'] },
     type: { type: Type.STRING, enum: ['Lunch', 'Dinner'] },
     macros: {
       type: Type.OBJECT,
@@ -53,35 +53,49 @@ const DISH_SCHEMA = {
     },
     tags: {
       type: Type.ARRAY,
-      items: { type: Type.STRING }
+      items: { type: Type.STRING, description: "Categorization tags like 'spicy', 'quick', 'mild', 'high-protein', 'vegetarian', 'non-vegetarian'" }
     }
-  }
+  },
+  required: ['name', 'localName', 'dietType', 'tags', 'ingredients', 'instructions']
 };
 
+/**
+ * Generates new meal ideas based on user preferences.
+ * Fix: Changed cuisines parameter to string[] to resolve type mismatch in App.tsx call sites 
+ * where UserProfile.cuisines (string[]) is passed.
+ */
 export const generateNewDishes = async (
   count: number, 
   allergens: Allergen[], 
-  cuisines: Cuisine[],
+  cuisines: string[],
+  dietType: DietType,
   context: VibeMode = 'Explorer'
 ): Promise<Dish[]> => {
-  if (!apiKey) return [];
+  // Always initialize right before use with process.env.API_KEY as per SDK guidelines
+  // Fix: Directly use process.env.API_KEY without fallback as per guidelines
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   try {
-    const ai = new GoogleGenAI({ apiKey });
-    
-    // We use search grounding here to get real, trending recipes
+    const dietInstruction = dietType === DietType.Vegetarian 
+      ? "Strictly Vegetarian. No meat, no fish, no poultry, no eggs." 
+      : dietType === DietType.Eggetarian 
+        ? "Eggetarian. Include eggs and vegetarian items, but no meat, fish, or poultry."
+        : "Non-Vegetarian. Can include meat, fish, poultry, eggs, and vegetarian items.";
+
     const prompt = `Generate ${count} distinct meal ideas. 
+    Dietary Preference: ${dietInstruction}.
     User Preferences (Cuisines): ${cuisines.join(', ')}.
     Vibe Context: ${context}.
     Exclude ingredients containing these allergens: ${allergens.join(', ')}.
     Use Google Search to find currently trending or highly-rated recipes fitting this criteria.
-    Return a list of dishes with macros, ingredients, step-by-step cooking instructions (5-6 steps), and a local Indian name if applicable.`;
+    Return a list of dishes with macros, ingredients, step-by-step cooking instructions (5-6 steps), and a local Indian name if applicable.
+    Ensure each dish has relevant tags like 'spicy', 'quick', 'high-protein', etc.`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
       config: {
-        tools: [{ googleSearch: {} }], // Feature: Search Grounding
+        tools: [{ googleSearch: {} }], 
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.ARRAY,
@@ -95,7 +109,6 @@ export const generateNewDishes = async (
       return rawDishes.map((d: any, idx: number) => ({
         ...d,
         id: `ai_${Date.now()}_${idx}`,
-        // We use random picsum for now to save latency, but in a real app, we'd use gemini-pro-image
         image: `https://picsum.photos/400/400?random=${Math.floor(Math.random() * 1000)}`,
         allergens: [] 
       }));
@@ -108,20 +121,20 @@ export const generateNewDishes = async (
   }
 };
 
-// Feature: Image Generation with Size Control
 const generateDishImage = async (dishName: string, description: string, size: ImageSize): Promise<string> => {
-    if (!apiKey) return `https://picsum.photos/400/400?random=${Math.floor(Math.random() * 1000)}`;
+    // Always initialize right before use with process.env.API_KEY as per SDK guidelines
+    // Fix: Directly use process.env.API_KEY without fallback
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     try {
-        const ai = new GoogleGenAI({ apiKey });
         const response = await ai.models.generateContent({
-            model: 'gemini-3-pro-image-preview', // Feature: High quality image gen
+            model: 'gemini-3-pro-image-preview',
             contents: {
                 parts: [{ text: `A professional food photography shot of ${dishName}, ${description}. High resolution, appetizing, studio lighting, centered, 4k.` }]
             },
             config: {
                 imageConfig: {
-                    imageSize: size, // Feature: Size selection
+                    imageSize: size,
                     aspectRatio: "3:4" 
                 }
             }
@@ -138,21 +151,21 @@ const generateDishImage = async (dishName: string, description: string, size: Im
     return `https://picsum.photos/400/400?random=${Math.floor(Math.random() * 1000)}`;
 };
 
-// Feature: Multi-modal Analysis (Text, Image, Video)
 export const analyzeAndGenerateDish = async (
     type: 'text' | 'image' | 'video', 
     input: string | File,
     imageSize: ImageSize = '1K'
 ): Promise<Dish | null> => {
-    if (!apiKey) return null;
-    const ai = new GoogleGenAI({ apiKey });
+    // Always initialize right before use with process.env.API_KEY as per SDK guidelines
+    // Fix: Directly use process.env.API_KEY without fallback
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     try {
         let contents: any;
-        let model = 'gemini-3-pro-preview'; // Default for analysis
+        let model = 'gemini-3-pro-preview';
 
         if (type === 'text') {
-            model = 'gemini-3-flash-preview'; // Faster for text
+            model = 'gemini-3-flash-preview';
             contents = `Find a real recipe based on this description: "${input}". Use Google Search to ensure it exists. Return JSON.`;
         } else if (type === 'image' && input instanceof File) {
             const base64 = await fileToBase64(input);
@@ -177,7 +190,6 @@ export const analyzeAndGenerateDish = async (
             responseSchema: DISH_SCHEMA
         };
 
-        // Only add search tool for text queries
         if (type === 'text') {
             config.tools = [{ googleSearch: {} }];
         }
@@ -191,8 +203,6 @@ export const analyzeAndGenerateDish = async (
         if (!response.text) return null;
         
         const dishData = JSON.parse(response.text);
-
-        // Generate the custom image
         const imageUrl = await generateDishImage(dishData.name, dishData.description, imageSize);
 
         return {

@@ -82,7 +82,7 @@ const App: React.FC = () => {
     localStorage.setItem('chefSync_profile', JSON.stringify(profile));
     
     setIsSeeding(true);
-    const realDishes = await generateNewDishes(6, profile.allergens, profile.cuisines);
+    const realDishes = await generateNewDishes(6, profile.allergens, profile.cuisines, profile.dietType);
     setAvailableDishes(realDishes);
     setIsSeeding(false);
     setView(AppView.Swipe);
@@ -112,7 +112,7 @@ const App: React.FC = () => {
     const currentIndex = availableDishes.findIndex(d => d.id === dishId);
     if (availableDishes.length - currentIndex < 4 && !fetchingMore && userProfile) {
        setFetchingMore(true);
-       generateNewDishes(5, userProfile.allergens, userProfile.cuisines)
+       generateNewDishes(5, userProfile.allergens, userProfile.cuisines, userProfile.dietType)
          .then(newDishes => {
             setAvailableDishes(prev => [...prev, ...newDishes]);
             setFetchingMore(false);
@@ -133,7 +133,7 @@ const App: React.FC = () => {
 
   const handleRequestMoreDishes = async (context: VibeMode) => {
     if (!userProfile) return;
-    const newDishes = await generateNewDishes(5, userProfile.allergens, userProfile.cuisines, context);
+    const newDishes = await generateNewDishes(5, userProfile.allergens, userProfile.cuisines, userProfile.dietType, context);
     setAvailableDishes(prev => [...prev, ...newDishes]);
   };
 
@@ -183,7 +183,6 @@ const App: React.FC = () => {
     window.location.href = url;
   };
 
-  // Nav Component
   const Nav = () => (
     <div className="h-20 bg-paper border-t-2 border-ink flex justify-around items-center px-2 shrink-0 safe-area-bottom z-40">
       <button 

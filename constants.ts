@@ -1,4 +1,5 @@
-import { Dish, Allergen } from './types';
+
+import { Dish, Allergen, DietType } from './types';
 
 export const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -27,7 +28,9 @@ export const INITIAL_DISHES: Dish[] = [
       'Stir in paneer cubes and fresh cream. Simmer for 2 mins and serve.'
     ],
     tags: ['Creamy', 'Vegetarian'],
-    allergens: [Allergen.Dairy]
+    allergens: [Allergen.Dairy],
+    // Added missing dietType property to satisfy the Dish interface requirements
+    dietType: DietType.Vegetarian
   },
   {
     id: '2',
@@ -52,7 +55,9 @@ export const INITIAL_DISHES: Dish[] = [
       'Finish with dry mango powder (amchur) for tanginess.'
     ],
     tags: ['Dry', 'Vegetarian', 'Vegan'],
-    allergens: []
+    allergens: [],
+    // Added missing dietType property to satisfy the Dish interface requirements
+    dietType: DietType.Vegetarian
   },
   {
     id: '3',
@@ -77,7 +82,9 @@ export const INITIAL_DISHES: Dish[] = [
       'Top salad with sliced chicken.'
     ],
     tags: ['Healthy', 'Low Carb'],
-    allergens: []
+    allergens: [],
+    // Added missing dietType property to satisfy the Dish interface requirements
+    dietType: DietType.NonVegetarian
   },
   {
     id: '4',
@@ -102,7 +109,9 @@ export const INITIAL_DISHES: Dish[] = [
       'Serve hot garnished with coriander.'
     ],
     tags: ['Comfort', 'Vegetarian'],
-    allergens: []
+    allergens: [],
+    // Added missing dietType property to satisfy the Dish interface requirements
+    dietType: DietType.Vegetarian
   },
   {
     id: '5',
@@ -127,6 +136,8 @@ export const INITIAL_DISHES: Dish[] = [
       'Add cooked chickpeas and simmer for 15 mins to thicken gravy.'
     ],
     tags: ['Spicy', 'Vegan'],
-    allergens: []
+    allergens: [],
+    // Added missing dietType property to satisfy the Dish interface requirements
+    dietType: DietType.Vegetarian
   },
 ];

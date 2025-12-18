@@ -14,6 +14,12 @@ export enum HealthCondition {
   PCOS = 'PCOS'
 }
 
+export enum DietType {
+  Vegetarian = 'Vegetarian',
+  NonVegetarian = 'Non-Vegetarian',
+  Eggetarian = 'Eggetarian'
+}
+
 export type Cuisine = 'North Indian' | 'South Indian' | 'Italian' | 'Mexican' | 'Thai' | 'Chinese' | 'Mediterranean' | 'American';
 
 export interface Macros {
@@ -27,7 +33,8 @@ export interface UserProfile {
   name: string;
   allergens: Allergen[];
   conditions: HealthCondition[];
-  cuisines: Cuisine[]; // New field
+  cuisines: string[]; // Changed to string[] for custom cuisines
+  dietType: DietType;
   dailyTargets: Macros;
   isOnboarded: boolean;
 }
@@ -50,8 +57,9 @@ export interface Dish {
   macros: Macros;
   ingredients: Ingredient[];
   instructions: string[]; // Recipe steps
-  tags: string[]; // e.g. "Creamy", "Spicy"
+  tags: string[]; // e.g. "Creamy", "Spicy", "Vegetarian", "Quick"
   allergens: Allergen[];
+  dietType: DietType; // Added to dish type
   lastEaten?: number; // Timestamp
   isStaple?: boolean;
   userNotes?: string; // Persistent modifications

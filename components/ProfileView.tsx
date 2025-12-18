@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { UserProfile, Allergen, HealthCondition, Cuisine } from '../types';
-import { Save, User, Shield, Activity, Globe } from 'lucide-react';
+import { UserProfile, Allergen, HealthCondition, Cuisine, DietType } from '../types';
+import { Save, User, Shield, Activity, Globe, Leaf, Target, Plus, X } from 'lucide-react';
 
 interface Props {
   userProfile: UserProfile;
@@ -15,6 +15,7 @@ const CUISINE_OPTIONS: Cuisine[] = [
 const ProfileView: React.FC<Props> = ({ userProfile, onUpdateProfile }) => {
   const [profile, setProfile] = useState<UserProfile>(userProfile);
   const [isSaved, setIsSaved] = useState(false);
+  const [customCuisine, setCustomCuisine] = useState('');
 
   const toggleAllergen = (a: Allergen) => {
     setProfile(prev => ({
@@ -34,12 +35,27 @@ const ProfileView: React.FC<Props> = ({ userProfile, onUpdateProfile }) => {
     }));
   };
 
-  const toggleCuisine = (c: Cuisine) => {
+  const toggleCuisine = (c: string) => {
     setProfile(prev => ({
       ...prev,
       cuisines: prev.cuisines.includes(c)
         ? prev.cuisines.filter(x => x !== c)
         : [...prev.cuisines, c]
+    }));
+  };
+
+  const addCustomCuisine = () => {
+    if (customCuisine.trim() && !profile.cuisines.includes(customCuisine.trim())) {
+      toggleCuisine(customCuisine.trim());
+      setCustomCuisine('');
+    }
+  };
+
+  const updateMacro = (key: keyof typeof profile.dailyTargets, val: string) => {
+    const num = parseInt(val) || 0;
+    setProfile(prev => ({
+      ...prev,
+      dailyTargets: { ...prev.dailyTargets, [key]: num }
     }));
   };
 
@@ -51,7 +67,6 @@ const ProfileView: React.FC<Props> = ({ userProfile, onUpdateProfile }) => {
 
   return (
     <div className="flex flex-col h-full bg-paper">
-      {/* Header */}
       <div className="p-4 border-b-2 border-ink bg-paper sticky top-0 z-10 flex justify-between items-center">
         <div>
            <h2 className="text-2xl font-black uppercase text-ink">Back Office</h2>
@@ -68,7 +83,6 @@ const ProfileView: React.FC<Props> = ({ userProfile, onUpdateProfile }) => {
 
       <div className="flex-1 overflow-y-auto p-4 space-y-8 pb-24">
         
-        {/* Name Section */}
         <div className="bg-white border-2 border-ink p-4 shadow-hard-sm">
            <div className="flex items-center gap-2 mb-4 border-b-2 border-gray-100 pb-2">
               <User className="text-ink" size={20} />
@@ -83,13 +97,84 @@ const ProfileView: React.FC<Props> = ({ userProfile, onUpdateProfile }) => {
            />
         </div>
 
-        {/* Cuisines */}
+        {/* Macros Section */}
+        <div className="bg-white border-2 border-ink p-4 shadow-hard-sm">
+           <div className="flex items-center gap-2 mb-4 border-b-2 border-gray-100 pb-2">
+              <Target className="text-brand-600" size={20} />
+              <h3 className="font-black uppercase text-sm">Performance Targets</h3>
+           </div>
+           <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col">
+                <label className="font-mono text-[10px] uppercase font-bold text-gray-400 mb-1">Protein (g)</label>
+                <input 
+                  type="number" 
+                  value={profile.dailyTargets.protein}
+                  onChange={(e) => updateMacro('protein', e.target.value)}
+                  className="w-full border-2 border-gray-100 p-2 font-mono font-bold text-sm focus:border-ink focus:outline-none"
+                />
+              </div>
+              <div className="flex flex-col">
+                <label className="font-mono text-[10px] uppercase font-bold text-gray-400 mb-1">Carbs (g)</label>
+                <input 
+                  type="number" 
+                  value={profile.dailyTargets.carbs}
+                  onChange={(e) => updateMacro('carbs', e.target.value)}
+                  className="w-full border-2 border-gray-100 p-2 font-mono font-bold text-sm focus:border-ink focus:outline-none"
+                />
+              </div>
+              <div className="flex flex-col">
+                <label className="font-mono text-[10px] uppercase font-bold text-gray-400 mb-1">Fat (g)</label>
+                <input 
+                  type="number" 
+                  value={profile.dailyTargets.fat}
+                  onChange={(e) => updateMacro('fat', e.target.value)}
+                  className="w-full border-2 border-gray-100 p-2 font-mono font-bold text-sm focus:border-ink focus:outline-none"
+                />
+              </div>
+              <div className="flex flex-col">
+                <label className="font-mono text-[10px] uppercase font-bold text-gray-400 mb-1">Energy (kcal)</label>
+                <input 
+                  type="number" 
+                  value={profile.dailyTargets.calories}
+                  onChange={(e) => updateMacro('calories', e.target.value)}
+                  className="w-full border-2 border-gray-100 p-2 font-mono font-bold text-sm focus:border-ink focus:outline-none"
+                />
+              </div>
+           </div>
+        </div>
+
+        {/* Diet Type */}
+        <div className="bg-white border-2 border-ink p-4 shadow-hard-sm">
+           <div className="flex items-center gap-2 mb-4 border-b-2 border-gray-100 pb-2">
+              <Leaf className="text-green-600" size={20} />
+              <h3 className="font-black uppercase text-sm">Dietary Base</h3>
+           </div>
+           <div className="grid grid-cols-3 gap-2">
+              {Object.values(DietType).map(dt => (
+                 <button
+                   key={dt}
+                   onClick={() => setProfile({...profile, dietType: dt})}
+                   className={`p-2 text-[10px] font-black uppercase border-2 transition flex flex-col items-center gap-1 ${
+                     profile.dietType === dt 
+                       ? 'bg-ink border-ink text-white shadow-hard-sm' 
+                       : 'bg-white border-gray-200 text-gray-400 hover:border-gray-400'
+                   }`}
+                 >
+                   <div className={`w-3 h-3 border border-current flex items-center justify-center rounded-sm ${dt === DietType.Vegetarian ? 'text-green-500' : dt === DietType.Eggetarian ? 'text-yellow-500' : 'text-red-500'}`}>
+                    <div className="w-1.5 h-1.5 rounded-full bg-current"></div>
+                  </div>
+                   {dt.replace('Vegetarian', 'Veg')}
+                 </button>
+              ))}
+           </div>
+        </div>
+
         <div className="bg-white border-2 border-ink p-4 shadow-hard-sm">
            <div className="flex items-center gap-2 mb-4 border-b-2 border-gray-100 pb-2">
               <Globe className="text-ink" size={20} />
               <h3 className="font-black uppercase text-sm">Cuisine Specialties</h3>
            </div>
-           <div className="grid grid-cols-2 gap-2">
+           <div className="grid grid-cols-2 gap-2 mb-4">
               {CUISINE_OPTIONS.map(c => (
                  <button
                    key={c}
@@ -104,9 +189,35 @@ const ProfileView: React.FC<Props> = ({ userProfile, onUpdateProfile }) => {
                  </button>
               ))}
            </div>
+           <div>
+              <label className="font-mono text-[10px] uppercase font-bold text-gray-400 block mb-1">Add Custom Cuisine</label>
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  value={customCuisine}
+                  onChange={(e) => setCustomCuisine(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && addCustomCuisine()}
+                  className="flex-1 bg-white border-2 border-gray-100 p-2 font-mono text-sm focus:border-ink focus:outline-none"
+                  placeholder="e.g. Marathi, Naga..."
+                />
+                <button 
+                  onClick={addCustomCuisine}
+                  className="bg-ink text-white p-2 border-2 border-ink"
+                >
+                  <Plus size={20} />
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-3">
+                {profile.cuisines.filter(c => !CUISINE_OPTIONS.includes(c as any)).map(c => (
+                  <span key={c} className="bg-ink text-white text-[10px] font-mono px-2 py-1 flex items-center gap-1">
+                    {c}
+                    <X size={12} className="cursor-pointer" onClick={() => toggleCuisine(c)} />
+                  </span>
+                ))}
+              </div>
+           </div>
         </div>
 
-        {/* Safety */}
         <div className="bg-white border-2 border-ink p-4 shadow-hard-sm">
            <div className="flex items-center gap-2 mb-4 border-b-2 border-gray-100 pb-2">
               <Shield className="text-red-500" size={20} />
@@ -129,7 +240,6 @@ const ProfileView: React.FC<Props> = ({ userProfile, onUpdateProfile }) => {
            </div>
         </div>
 
-        {/* Health */}
         <div className="bg-white border-2 border-ink p-4 shadow-hard-sm">
            <div className="flex items-center gap-2 mb-4 border-b-2 border-gray-100 pb-2">
               <Activity className="text-blue-500" size={20} />
