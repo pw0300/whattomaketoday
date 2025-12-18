@@ -1,3 +1,4 @@
+
 export enum Allergen {
   Gluten = 'Gluten',
   Dairy = 'Dairy',
@@ -14,13 +15,10 @@ export enum HealthCondition {
   PCOS = 'PCOS'
 }
 
-export enum DietType {
-  Vegetarian = 'Vegetarian',
-  NonVegetarian = 'Non-Vegetarian',
-  Eggetarian = 'Eggetarian'
-}
+// Changed from union type to string to allow custom user inputs
+export type Cuisine = string; 
 
-export type Cuisine = 'North Indian' | 'South Indian' | 'Italian' | 'Mexican' | 'Thai' | 'Chinese' | 'Mediterranean' | 'American';
+export type DietaryPreference = 'Vegetarian' | 'Non-Vegetarian' | 'Vegan' | 'Any';
 
 export interface Macros {
   protein: number;
@@ -29,12 +27,27 @@ export interface Macros {
   calories: number;
 }
 
+export interface Biometrics {
+  age: number;
+  gender: 'Male' | 'Female' | 'Other';
+  weight: number; // kg
+  height: number; // cm
+  activityLevel: 'Sedentary' | 'Light' | 'Moderate' | 'Active';
+  goal: 'Lose' | 'Maintain' | 'Gain';
+}
+
 export interface UserProfile {
   name: string;
   allergens: Allergen[];
+  allergenNotes: string;
   conditions: HealthCondition[];
-  cuisines: string[]; // Changed to string[] for custom cuisines
-  dietType: DietType;
+  conditionNotes: string;
+  healthReportSummary?: string; // NEW: AI extracted insights from lab reports
+  cuisines: Cuisine[];
+  cuisineNotes: string;
+  dietaryPreference: DietaryPreference;
+  customNotes: string; // Free text for AI context
+  biometrics?: Biometrics; // NEW: For auto-calc
   dailyTargets: Macros;
   isOnboarded: boolean;
 }
@@ -57,12 +70,13 @@ export interface Dish {
   macros: Macros;
   ingredients: Ingredient[];
   instructions: string[]; // Recipe steps
-  tags: string[]; // e.g. "Creamy", "Spicy", "Vegetarian", "Quick"
+  tags: string[]; // e.g. "Creamy", "Spicy"
+  chefAdvice?: string; // NEW: Specific pro-tip from the AI
   allergens: Allergen[];
-  dietType: DietType; // Added to dish type
   lastEaten?: number; // Timestamp
   isStaple?: boolean;
   userNotes?: string; // Persistent modifications
+  servings?: number; // NEW: Persist the batch scale (Default 1)
 }
 
 export enum SwipeDirection {
@@ -75,13 +89,15 @@ export interface DayPlan {
   day: string;
   lunch: Dish | null;
   dinner: Dish | null;
+  isLocked?: boolean; // NEW: Prevents regeneration
 }
 
 export enum AppView {
   Onboarding = 'Onboarding',
   Swipe = 'Swipe',
   Planner = 'Planner',
-  Grocery = 'Grocery',
+  Shopping = 'Shopping', // Renamed from Grocery
+  Pantry = 'Pantry',     // New
   Profile = 'Profile'
 }
 

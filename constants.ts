@@ -1,7 +1,14 @@
 
-import { Dish, Allergen, DietType } from './types';
+import { Dish, Allergen } from './types';
 
 export const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
+export const STORAGE_KEYS = {
+  PROFILE: 'chefSync_profile',
+  PANTRY: 'chefSync_pantryStock',
+  PLAN: 'chefSync_weeklyPlan',
+  INTRO: 'chefSync_introSeen'
+};
 
 export const INITIAL_DISHES: Dish[] = [
   {
@@ -28,9 +35,7 @@ export const INITIAL_DISHES: Dish[] = [
       'Stir in paneer cubes and fresh cream. Simmer for 2 mins and serve.'
     ],
     tags: ['Creamy', 'Vegetarian'],
-    allergens: [Allergen.Dairy],
-    // Added missing dietType property to satisfy the Dish interface requirements
-    dietType: DietType.Vegetarian
+    allergens: [Allergen.Dairy]
   },
   {
     id: '2',
@@ -55,9 +60,7 @@ export const INITIAL_DISHES: Dish[] = [
       'Finish with dry mango powder (amchur) for tanginess.'
     ],
     tags: ['Dry', 'Vegetarian', 'Vegan'],
-    allergens: [],
-    // Added missing dietType property to satisfy the Dish interface requirements
-    dietType: DietType.Vegetarian
+    allergens: []
   },
   {
     id: '3',
@@ -82,9 +85,7 @@ export const INITIAL_DISHES: Dish[] = [
       'Top salad with sliced chicken.'
     ],
     tags: ['Healthy', 'Low Carb'],
-    allergens: [],
-    // Added missing dietType property to satisfy the Dish interface requirements
-    dietType: DietType.NonVegetarian
+    allergens: []
   },
   {
     id: '4',
@@ -109,9 +110,7 @@ export const INITIAL_DISHES: Dish[] = [
       'Serve hot garnished with coriander.'
     ],
     tags: ['Comfort', 'Vegetarian'],
-    allergens: [],
-    // Added missing dietType property to satisfy the Dish interface requirements
-    dietType: DietType.Vegetarian
+    allergens: []
   },
   {
     id: '5',
@@ -136,8 +135,6 @@ export const INITIAL_DISHES: Dish[] = [
       'Add cooked chickpeas and simmer for 15 mins to thicken gravy.'
     ],
     tags: ['Spicy', 'Vegan'],
-    allergens: [],
-    // Added missing dietType property to satisfy the Dish interface requirements
-    dietType: DietType.Vegetarian
+    allergens: []
   },
 ];

@@ -1,6 +1,5 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
-import { Dish, Allergen, VibeMode, ImageSize, DietType } from '../types';
+import { Dish, Allergen, VibeMode, ImageSize, Cuisine, DietaryPreference, UserProfile } from '../types';
 
 // Helper to convert Blob/File to Base64
 const fileToBase64 = (file: File): Promise<string> => {
@@ -25,7 +24,6 @@ const DISH_SCHEMA = {
     description: { type: Type.STRING },
     primaryIngredient: { type: Type.STRING },
     cuisine: { type: Type.STRING },
-    dietType: { type: Type.STRING, enum: ['Vegetarian', 'Non-Vegetarian', 'Eggetarian'] },
     type: { type: Type.STRING, enum: ['Lunch', 'Dinner'] },
     macros: {
       type: Type.OBJECT,
@@ -53,49 +51,88 @@ const DISH_SCHEMA = {
     },
     tags: {
       type: Type.ARRAY,
-      items: { type: Type.STRING, description: "Categorization tags like 'spicy', 'quick', 'mild', 'high-protein', 'vegetarian', 'non-vegetarian'" }
-    }
-  },
-  required: ['name', 'localName', 'dietType', 'tags', 'ingredients', 'instructions']
+      items: { type: Type.STRING }
+    },
+    chefAdvice: { type: Type.STRING, description: "One single sentence of professional culinary advice for this dish (e.g., 'Sear the meat on high heat first')." }
+  }
 };
 
-/**
- * Generates new meal ideas based on user preferences.
- * Fix: Changed cuisines parameter to string[] to resolve type mismatch in App.tsx call sites 
- * where UserProfile.cuisines (string[]) is passed.
- */
+const buildConstraintPrompt = (profile: UserProfile): string => {
+  return `
+    **Strict User Constraints (MUST FOLLOW):**
+    1. Dietary Preference: ${profile.dietaryPreference} (Non-negotiable).
+    2. Allergens to Exclude: ${profile.allergens.join(', ')}.
+    3. Safety Notes: "${profile.allergenNotes || 'None'}".
+    4. Health Conditions: ${profile.conditions.join(', ')}.
+    5. Bio-Health Report Constraints: "${profile.healthReportSummary || 'None'}".
+    6. General Preferences: "${profile.customNotes}".
+  `;
+};
+
+// Helper to clean Markdown code blocks from JSON response
+const cleanJson = (text: string) => {
+  return text.replace(/```json/g, '').replace(/```/g, '').trim();
+};
+
+export const analyzeHealthReport = async (file: File): Promise<string> => {
+    if (!process.env.API_KEY) return "Error: API Key missing";
+
+    try {
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const base64 = await fileToBase64(file);
+        
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-pro-preview',
+            contents: {
+                parts: [
+                    { inlineData: { mimeType: file.type, data: base64 } },
+                    { text: "Analyze this medical/health report. Extract ONLY the dietary implications and nutritional deficiencies. Provide a concise summary of what foods to avoid and what nutrients to prioritize to compensate for these results. Do not give medical advice, only culinary/dietary strategy. Format as a list of constraints." }
+                ]
+            }
+        });
+
+        return response.text || "Could not analyze report.";
+    } catch (e) {
+        console.error("Health report analysis failed", e);
+        return "Analysis failed. Please try again.";
+    }
+};
+
 export const generateNewDishes = async (
   count: number, 
-  allergens: Allergen[], 
-  cuisines: string[],
-  dietType: DietType,
+  userProfile: UserProfile,
   context: VibeMode = 'Explorer'
 ): Promise<Dish[]> => {
-  // Always initialize right before use with process.env.API_KEY as per SDK guidelines
-  // Fix: Directly use process.env.API_KEY without fallback as per guidelines
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  if (!process.env.API_KEY) return [];
   
   try {
-    const dietInstruction = dietType === DietType.Vegetarian 
-      ? "Strictly Vegetarian. No meat, no fish, no poultry, no eggs." 
-      : dietType === DietType.Eggetarian 
-        ? "Eggetarian. Include eggs and vegetarian items, but no meat, fish, or poultry."
-        : "Non-Vegetarian. Can include meat, fish, poultry, eggs, and vegetarian items.";
-
-    const prompt = `Generate ${count} distinct meal ideas. 
-    Dietary Preference: ${dietInstruction}.
-    User Preferences (Cuisines): ${cuisines.join(', ')}.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    
+    // We use search grounding here to get real, trending recipes
+    const prompt = `Act as an Executive Chef planning a high-end home menu. Generate ${count} distinct meal ideas. 
+    
+    **Identity & Vibe:**
+    The user is a "Home Chef" who wants professional organization but home comfort.
     Vibe Context: ${context}.
-    Exclude ingredients containing these allergens: ${allergens.join(', ')}.
-    Use Google Search to find currently trending or highly-rated recipes fitting this criteria.
-    Return a list of dishes with macros, ingredients, step-by-step cooking instructions (5-6 steps), and a local Indian name if applicable.
-    Ensure each dish has relevant tags like 'spicy', 'quick', 'high-protein', etc.`;
+    
+    ${buildConstraintPrompt(userProfile)}
+    
+    **Priority Cuisines:** ${userProfile.cuisines.join(', ')}.
+    **Cuisine Notes:** "${userProfile.cuisineNotes || 'None'}"
+
+    **Requirements:**
+    1. Use Google Search to find currently trending or highly-rated recipes fitting these criteria.
+    2. Provide a 'localName' (native name) if the dish is ethnic, otherwise repeat the name.
+    3. The 'chefAdvice' field MUST be a single, high-value pro-tip (e.g. "Temper the spices in ghee", "Don't overcook the okra").
+    4. Keep instructions concise (Chef shorthand).
+    
+    Return a list of dishes with macros, ingredients, step-by-step cooking instructions, and tags.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {
-        tools: [{ googleSearch: {} }], 
+        tools: [{ googleSearch: {} }], // Feature: Search Grounding
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.ARRAY,
@@ -105,10 +142,12 @@ export const generateNewDishes = async (
     });
 
     if (response.text) {
-      const rawDishes = JSON.parse(response.text);
+      const cleaned = cleanJson(response.text);
+      const rawDishes = JSON.parse(cleaned);
       return rawDishes.map((d: any, idx: number) => ({
         ...d,
         id: `ai_${Date.now()}_${idx}`,
+        // We use random picsum for now to save latency, but in a real app, we'd use gemini-pro-image
         image: `https://picsum.photos/400/400?random=${Math.floor(Math.random() * 1000)}`,
         allergens: [] 
       }));
@@ -121,20 +160,20 @@ export const generateNewDishes = async (
   }
 };
 
+// Feature: Image Generation with Size Control
 const generateDishImage = async (dishName: string, description: string, size: ImageSize): Promise<string> => {
-    // Always initialize right before use with process.env.API_KEY as per SDK guidelines
-    // Fix: Directly use process.env.API_KEY without fallback
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    if (!process.env.API_KEY) return `https://picsum.photos/400/400?random=${Math.floor(Math.random() * 1000)}`;
 
     try {
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const response = await ai.models.generateContent({
-            model: 'gemini-3-pro-image-preview',
+            model: 'gemini-3-pro-image-preview', // Feature: High quality image gen
             contents: {
                 parts: [{ text: `A professional food photography shot of ${dishName}, ${description}. High resolution, appetizing, studio lighting, centered, 4k.` }]
             },
             config: {
                 imageConfig: {
-                    imageSize: size,
+                    imageSize: size, // Feature: Size selection
                     aspectRatio: "3:4" 
                 }
             }
@@ -151,22 +190,46 @@ const generateDishImage = async (dishName: string, description: string, size: Im
     return `https://picsum.photos/400/400?random=${Math.floor(Math.random() * 1000)}`;
 };
 
+// Feature: Multi-modal Analysis (Text, Image, Video, Pantry)
 export const analyzeAndGenerateDish = async (
-    type: 'text' | 'image' | 'video', 
+    type: 'text' | 'image' | 'video' | 'pantry', 
     input: string | File,
-    imageSize: ImageSize = '1K'
+    imageSize: ImageSize = '1K',
+    userProfile?: UserProfile,
+    customInstruction?: string
 ): Promise<Dish | null> => {
-    // Always initialize right before use with process.env.API_KEY as per SDK guidelines
-    // Fix: Directly use process.env.API_KEY without fallback
+    if (!process.env.API_KEY) return null;
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     try {
         let contents: any;
-        let model = 'gemini-3-pro-preview';
+        let model = 'gemini-3-pro-preview'; // Default for analysis
+
+        const constraints = userProfile ? buildConstraintPrompt(userProfile) : '';
+        const extraInstruction = customInstruction ? `**Additional User Instruction:** "${customInstruction}"` : '';
 
         if (type === 'text') {
-            model = 'gemini-3-flash-preview';
-            contents = `Find a real recipe based on this description: "${input}". Use Google Search to ensure it exists. Return JSON.`;
+            model = 'gemini-3-flash-preview'; // Faster for text
+            contents = `Find a real recipe based on this description: "${input}". 
+            ${constraints}
+            ${extraInstruction}
+            Use Google Search to ensure it exists and fits the constraints. Return JSON.`;
+        } else if (type === 'pantry' && typeof input === 'string') {
+            // Reverse Search / Mystery Basket Mode
+            // STRICT MODE: We instruct the model to prioritize ONLY the given ingredients.
+            model = 'gemini-3-pro-preview';
+            contents = `Act as a creative chef participating in a 'Mystery Basket' challenge (Iron Chef Style). 
+            The available ingredients (Pantry Stock) are: ${input}.
+            
+            ${constraints}
+            ${extraInstruction}
+            
+            **CRITICAL RULE:** You must PRIORITIZE using the provided pantry ingredients. 
+            You may ONLY assume the existence of: Water, Salt, Pepper, Neutral Oil, Sugar.
+            Any other ingredient required must be listed in the output ingredients list, but try to minimize "grocery runs".
+            
+            Create a cohesive, high-quality dish using these restrictions.
+            Return JSON matching the schema.`;
         } else if (type === 'image' && input instanceof File) {
             const base64 = await fileToBase64(input);
             contents = {
@@ -190,7 +253,8 @@ export const analyzeAndGenerateDish = async (
             responseSchema: DISH_SCHEMA
         };
 
-        if (type === 'text') {
+        // Only add search tool for text/pantry queries to ground them
+        if (type === 'text' || type === 'pantry') {
             config.tools = [{ googleSearch: {} }];
         }
 
@@ -202,7 +266,10 @@ export const analyzeAndGenerateDish = async (
 
         if (!response.text) return null;
         
-        const dishData = JSON.parse(response.text);
+        const cleaned = cleanJson(response.text);
+        const dishData = JSON.parse(cleaned);
+
+        // Generate the custom image
         const imageUrl = await generateDishImage(dishData.name, dishData.description, imageSize);
 
         return {
