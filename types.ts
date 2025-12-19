@@ -15,7 +15,6 @@ export enum HealthCondition {
   PCOS = 'PCOS'
 }
 
-// Changed from union type to string to allow custom user inputs
 export type Cuisine = string; 
 
 export type DietaryPreference = 'Vegetarian' | 'Non-Vegetarian' | 'Vegan' | 'Any';
@@ -30,24 +29,25 @@ export interface Macros {
 export interface Biometrics {
   age: number;
   gender: 'Male' | 'Female' | 'Other';
-  weight: number; // kg
-  height: number; // cm
+  weight: number; 
+  height: number; 
   activityLevel: 'Sedentary' | 'Light' | 'Moderate' | 'Active';
   goal: 'Lose' | 'Maintain' | 'Gain';
 }
 
 export interface UserProfile {
+  uid?: string; // Firebase UID
   name: string;
   allergens: Allergen[];
   allergenNotes: string;
   conditions: HealthCondition[];
   conditionNotes: string;
-  healthReportSummary?: string; // NEW: AI extracted insights from lab reports
+  healthReportSummary?: string; 
   cuisines: Cuisine[];
   cuisineNotes: string;
   dietaryPreference: DietaryPreference;
-  customNotes: string; // Free text for AI context
-  biometrics?: Biometrics; // NEW: For auto-calc
+  customNotes: string; 
+  biometrics?: Biometrics; 
   dailyTargets: Macros;
   isOnboarded: boolean;
 }
@@ -61,7 +61,7 @@ export interface Ingredient {
 export interface Dish {
   id: string;
   name: string;
-  localName: string; // For the cook (e.g., "Palak Paneer")
+  localName: string; 
   description: string;
   primaryIngredient: string;
   cuisine: string;
@@ -69,38 +69,45 @@ export interface Dish {
   image: string;
   macros: Macros;
   ingredients: Ingredient[];
-  instructions: string[]; // Recipe steps
-  tags: string[]; // e.g. "Creamy", "Spicy"
-  chefAdvice?: string; // NEW: Specific pro-tip from the AI
+  instructions: string[]; 
+  tags: string[]; 
+  chefAdvice?: string; 
   allergens: Allergen[];
-  lastEaten?: number; // Timestamp
+  lastEaten?: number; 
   isStaple?: boolean;
-  userNotes?: string; // Persistent modifications
-  servings?: number; // NEW: Persist the batch scale (Default 1)
+  userNotes?: string; 
+  servings?: number; 
 }
 
 export enum SwipeDirection {
-  Left = 'Left',   // Reject
-  Right = 'Right', // Add to rotation
-  Up = 'Up'        // Staple
+  Left = 'Left',   
+  Right = 'Right', 
+  Up = 'Up'        
 }
 
 export interface DayPlan {
   day: string;
   lunch: Dish | null;
   dinner: Dish | null;
-  isLocked?: boolean; // NEW: Prevents regeneration
+  isLocked?: boolean; 
 }
 
 export enum AppView {
   Onboarding = 'Onboarding',
   Swipe = 'Swipe',
   Planner = 'Planner',
-  Shopping = 'Shopping', // Renamed from Grocery
-  Pantry = 'Pantry',     // New
+  Shopping = 'Shopping', 
+  Pantry = 'Pantry',     
   Profile = 'Profile'
 }
 
 export type VibeMode = 'Strict' | 'Comfort' | 'Explorer';
 
 export type ImageSize = '1K' | '2K' | '4K';
+
+export interface AppState {
+    profile: UserProfile | null;
+    approvedDishes: Dish[];
+    weeklyPlan: DayPlan[];
+    pantryStock: string[];
+}

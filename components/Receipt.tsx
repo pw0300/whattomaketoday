@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { DayPlan } from '../types';
-import { Share2, X, Printer, Barcode, Mic, Play, Download, Loader2 } from 'lucide-react';
+import { Share2, X, Printer, Barcode, Mic, Play, Download, Loader2, Sparkles, MessageCircle } from 'lucide-react';
 import { generateVoiceBriefing } from '../services/geminiService';
 
 interface Props {
@@ -38,10 +38,9 @@ const Receipt: React.FC<Props> = ({ plan, missingIngredients, onClose, onSend })
               await navigator.share({
                   files: [file],
                   title: 'Cook Instructions (Hindi)',
-                  text: 'Please listen to these special instructions.'
+                  text: 'ChefSync Audio Briefing for the Cook.'
               });
           } else {
-              // Fallback to download
               const a = document.createElement('a');
               a.href = audioUrl;
               a.download = "Cook_Instructions.wav";
@@ -55,12 +54,12 @@ const Receipt: React.FC<Props> = ({ plan, missingIngredients, onClose, onSend })
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4 animate-in fade-in duration-300">
-      <div className="w-full max-w-sm relative">
+    <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4 animate-in fade-in duration-300 overflow-y-auto no-scrollbar">
+      <div className="w-full max-w-sm relative my-8">
         
         {/* Actions Header */}
         <div className="flex justify-between items-center mb-4 text-white">
-            <h3 className="font-mono text-xs uppercase tracking-widest text-white/70">Generated Artifact</h3>
+            <h3 className="font-mono text-[10px] uppercase tracking-[0.3em] text-white/50">Terminal Printout</h3>
             <button onClick={onClose} className="bg-white/10 hover:bg-white/20 p-2 rounded-full transition">
               <X size={20} />
             </button>
@@ -69,76 +68,70 @@ const Receipt: React.FC<Props> = ({ plan, missingIngredients, onClose, onSend })
         {/* The Receipt Container */}
         <div className="bg-[#F2F0E9] w-full shadow-2xl relative flex flex-col font-mono text-ink text-[12px] leading-tight filter drop-shadow-xl transform rotate-1">
            
-           {/* Top ZigZag */}
-           <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-br from-transparent to-[#F2F0E9]" style={{ backgroundImage: 'linear-gradient(45deg, transparent 75%, #000 75%), linear-gradient(-45deg, transparent 75%, #000 75%)', backgroundSize: '10px 10px', backgroundPosition: '0 0, 0 5px', height: '0px' }}></div>
-           
            {/* Header */}
-           <div className="p-6 pb-4 text-center border-b-[2px] border-dashed border-ink/30 mx-2">
-             <div className="flex justify-center mb-2">
-                <Printer size={24} strokeWidth={1.5} />
+           <div className="p-8 pb-6 text-center border-b-[2px] border-dashed border-ink/30 mx-2">
+             <div className="flex justify-center mb-3">
+                <Printer size={32} strokeWidth={1} />
              </div>
-             <h2 className="text-3xl font-black uppercase tracking-tighter mb-1 scale-y-110">ChefSync</h2>
-             <p className="text-[10px] uppercase tracking-widest text-ink/60">Kitchen Operating System v1.0</p>
-             <div className="flex justify-between mt-4 text-[10px] uppercase font-bold border-t border-b border-ink py-1">
-                <span>Date: {new Date().toLocaleDateString(undefined, { month: '2-digit', day: '2-digit' })}</span>
-                <span>Time: {new Date().toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
-                <span>Tkt: #{Math.floor(Math.random() * 9999)}</span>
+             <h2 className="text-4xl font-black uppercase tracking-tighter mb-1 scale-y-110">ChefSync OS</h2>
+             <p className="text-[9px] uppercase tracking-widest text-ink/40">INTELLIGENCE LAYER ACTIVATED</p>
+             <div className="flex justify-between mt-6 text-[10px] uppercase font-bold border-t border-b border-ink py-2">
+                <span>Dte: {new Date().toLocaleDateString()}</span>
+                <span>Tkt: {Math.floor(Math.random() * 99999)}</span>
              </div>
            </div>
 
            {/* Content Scroll */}
-           <div className="px-6 py-4 space-y-6 max-h-[50vh] overflow-y-auto no-scrollbar">
+           <div className="px-8 py-6 space-y-8 max-h-[50vh] overflow-y-auto no-scrollbar">
              
              {/* Meals Section */}
              <div>
-               <div className="flex items-center gap-2 mb-3">
-                  <span className="bg-ink text-[#F2F0E9] px-1 font-bold text-[10px] uppercase">Rotation</span>
+               <div className="flex items-center gap-2 mb-4">
+                  <span className="bg-ink text-[#F2F0E9] px-1.5 py-0.5 font-black text-[10px] uppercase">Service Rotation</span>
                   <div className="flex-1 h-px bg-ink/20"></div>
                </div>
                
-               {plan.map((d, i) => (
-                 <div key={i} className="mb-4 last:mb-0">
-                   <div className="flex justify-between items-baseline mb-1">
-                        <span className="font-black text-sm uppercase">{d.day.substring(0,3)}</span>
-                        <span className="text-[9px] uppercase text-ink/40 tracking-widest">SVC {i+1}</span>
+               {plan.filter(d => d.lunch || d.dinner).map((d, i) => (
+                 <div key={i} className="mb-6 last:mb-0 border-l-2 border-ink/10 pl-4">
+                   <div className="flex justify-between items-baseline mb-2">
+                        <span className="font-black text-[13px] uppercase tracking-wider">{d.day}</span>
+                        <span className="text-[8px] uppercase text-ink/30 font-bold">NODE {i+1}</span>
                    </div>
-                   <div className="pl-4 border-l border-ink/20 space-y-2">
-                        <div className="flex justify-between items-start">
-                            <span className="text-[10px] uppercase font-bold text-ink/50 w-8">AM</span>
-                            <span className="flex-1 text-right font-bold">{d.lunch?.name || "OUT OF SERVICE"}</span>
-                        </div>
-                        {d.lunch?.chefAdvice && (
-                            <div className="text-[10px] text-ink/60 italic text-right leading-tight">"{d.lunch.chefAdvice}"</div>
+                   <div className="space-y-3">
+                        {d.lunch && (
+                            <div className="flex justify-between items-start gap-4">
+                                <span className="text-[9px] uppercase font-bold text-ink/30 shrink-0">AM</span>
+                                <span className="flex-1 text-right font-bold leading-none">{d.lunch.localName || d.lunch.name}</span>
+                            </div>
                         )}
-                        <div className="flex justify-between items-start">
-                            <span className="text-[10px] uppercase font-bold text-ink/50 w-8">PM</span>
-                            <span className="flex-1 text-right font-bold">{d.dinner?.name || "STAFF MEAL"}</span>
-                        </div>
-                         {d.dinner?.chefAdvice && (
-                            <div className="text-[10px] text-ink/60 italic text-right leading-tight">"{d.dinner.chefAdvice}"</div>
+                        {d.dinner && (
+                            <div className="flex justify-between items-start gap-4">
+                                <span className="text-[9px] uppercase font-bold text-ink/30 shrink-0">PM</span>
+                                <span className="flex-1 text-right font-bold leading-none">{d.dinner.localName || d.dinner.name}</span>
+                            </div>
                         )}
                    </div>
                  </div>
                ))}
              </div>
 
-             {/* Grocery Section */}
+             {/* Inventory Requirements */}
              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="bg-ink text-[#F2F0E9] px-1 font-bold text-[10px] uppercase">Mise En Place</span>
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="bg-ink text-[#F2F0E9] px-1.5 py-0.5 font-black text-[10px] uppercase">Procurement List</span>
                   <div className="flex-1 h-px bg-ink/20"></div>
                </div>
 
                 {missingIngredients.length === 0 ? (
-                  <p className="text-center italic text-ink/40 text-xs py-4">-- Inventory Full --</p>
+                  <p className="text-center italic text-ink/40 text-xs py-4">-- INVENTORY OPTIMIZED --</p>
                 ) : (
                   missingIngredients.map((cat) => (
-                    <div key={cat.category} className="mb-3">
-                      <span className="font-bold text-[10px] uppercase tracking-wider text-ink/50 mb-1 block">{cat.category}</span>
+                    <div key={cat.category} className="mb-4">
+                      <span className="font-black text-[10px] uppercase tracking-wider text-ink/40 mb-2 block">{cat.category}</span>
                       {cat.items.map(item => (
-                        <div key={item} className="flex justify-between pl-0 text-[11px] py-0.5 border-b border-dotted border-ink/10 last:border-0">
-                           <span className="uppercase font-medium">{item.split('(')[0]}</span>
-                           <span className="font-mono text-[9px] bg-white border border-ink/20 px-1 rounded-sm ml-2 whitespace-nowrap">{item.split('(')[1]?.replace(')', '') || '1 Unit'}</span>
+                        <div key={item} className="flex justify-between pl-0 text-[11px] py-1 border-b border-dotted border-ink/10 last:border-0">
+                           <span className="uppercase font-medium pr-4">{item.split('(')[0]}</span>
+                           <span className="font-bold whitespace-nowrap">{item.split('(')[1]?.replace(')', '') || '1 Unit'}</span>
                         </div>
                       ))}
                     </div>
@@ -147,22 +140,18 @@ const Receipt: React.FC<Props> = ({ plan, missingIngredients, onClose, onSend })
              </div>
 
              {/* Footer Totals */}
-             <div className="pt-4 border-t-[2px] border-dashed border-ink/30 mt-4">
-               <div className="flex justify-between text-xs font-bold uppercase">
-                  <span>Services</span>
-                  <span>{plan.length * 2}</span>
+             <div className="pt-6 border-t-[2px] border-dashed border-ink/30 mt-6">
+               <div className="flex justify-between text-xs font-bold uppercase mb-1">
+                  <span>Planned Nodes</span>
+                  <span>{plan.filter(d => d.lunch || d.dinner).length}</span>
                </div>
-               <div className="flex justify-between text-xs font-bold uppercase">
-                  <span>Items</span>
-                  <span>{missingIngredients.reduce((acc, cat) => acc + cat.items.length, 0)}</span>
+               <div className="flex justify-between text-xl font-black uppercase mt-4 border-t-2 border-ink pt-2">
+                  <span>Grand Total</span>
+                  <span>0.00</span>
                </div>
-               <div className="flex justify-between text-xl font-black uppercase mt-2">
-                  <span>Total Due</span>
-                  <span>$0.00</span>
-               </div>
-               <div className="text-center mt-6 mb-2">
-                    <Barcode className="w-full h-8 opacity-50" />
-                    <p className="text-[9px] uppercase mt-1 tracking-[0.2em]">Domestic Planning Tax Paid</p>
+               <div className="text-center mt-10 mb-4 opacity-30 grayscale contrast-150">
+                    <Barcode className="w-full h-10" />
+                    <p className="text-[8px] uppercase mt-2 tracking-[0.4em] font-black">Authentication: {Math.random().toString(36).substring(7).toUpperCase()}</p>
                </div>
              </div>
            </div>
@@ -174,35 +163,42 @@ const Receipt: React.FC<Props> = ({ plan, missingIngredients, onClose, onSend })
         </div>
 
         {/* Action Button Group */}
-        <div className="mt-6 flex flex-col gap-3">
-            {/* VOICE NOTE CONTROL */}
-            {!audioUrl ? (
-                 <button 
-                 onClick={handleGenerateVoice}
-                 disabled={isGeneratingAudio}
-                 className="w-full bg-white text-ink py-3 font-bold uppercase tracking-widest border-2 border-white/20 hover:bg-white/90 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-               >
-                 {isGeneratingAudio ? <Loader2 className="animate-spin" /> : <Mic size={20} />}
-                 {isGeneratingAudio ? "Generating Hindi Voice..." : "Create Voice Note"}
-               </button>
-            ) : (
-                <div className="bg-white rounded-lg p-3 flex items-center gap-3">
-                    <audio src={audioUrl} controls className="flex-1 h-8 w-full" />
-                    <button onClick={handleShareAudio} className="bg-green-500 text-white p-2 rounded-full hover:bg-green-600 transition">
-                        <Share2 size={16} />
+        <div className="mt-12 flex flex-col gap-4">
+            
+            {/* VOICE NOTE UTILITY */}
+            <div className="bg-white/5 border-2 border-white/10 p-4 rounded-2xl">
+                 <div className="flex items-center gap-2 mb-3 text-brand-500">
+                    <Sparkles size={14} />
+                    <span className="font-mono text-[10px] font-bold uppercase tracking-widest">Hindi Briefing (AI)</span>
+                 </div>
+                 {!audioUrl ? (
+                    <button 
+                        onClick={handleGenerateVoice}
+                        disabled={isGeneratingAudio}
+                        className="w-full bg-brand-500 text-white py-3 font-black uppercase tracking-widest hover:bg-brand-600 transition-all flex items-center justify-center gap-3 disabled:opacity-50 border-2 border-brand-400"
+                    >
+                        {isGeneratingAudio ? <Loader2 className="animate-spin" /> : <Mic size={18} strokeWidth={3} />}
+                        {isGeneratingAudio ? "Synthesizing..." : "Briefing for Cook"}
                     </button>
-                    <button onClick={() => setAudioUrl(null)} className="text-gray-400 p-2 hover:text-red-500">
-                        <X size={16} />
-                    </button>
-                </div>
-            )}
+                 ) : (
+                    <div className="flex items-center gap-2 bg-white/10 p-2 rounded-xl border border-white/10">
+                        <button onClick={handleShareAudio} className="bg-green-500 text-white p-3 rounded-xl hover:bg-green-600 transition flex items-center gap-2 font-bold uppercase text-[10px]">
+                            <MessageCircle size={16} fill="currentColor" /> WhatsApp Audio
+                        </button>
+                        <audio src={audioUrl} controls className="flex-1 h-10 filter invert" />
+                        <button onClick={() => setAudioUrl(null)} className="p-2 text-white/30 hover:text-red-500">
+                            <X size={20} />
+                        </button>
+                    </div>
+                 )}
+            </div>
 
             <button 
-            onClick={onSend}
-            className="w-full bg-brand-500 text-white py-4 font-black uppercase tracking-widest shadow-[4px_4px_0px_0px_rgba(255,255,255,0.3)] hover:shadow-none hover:translate-y-1 transition-all flex items-center justify-center gap-3 border-2 border-white"
+                onClick={onSend}
+                className="w-full bg-white text-ink py-4 font-black uppercase tracking-widest shadow-hard hover:translate-y-1 hover:shadow-none transition-all flex items-center justify-center gap-4 border-2 border-ink"
             >
-                <Share2 size={20} strokeWidth={3} />
-                Send Text Manifest
+                <Share2 size={22} strokeWidth={3} />
+                Transmit Manifest
             </button>
         </div>
       </div>

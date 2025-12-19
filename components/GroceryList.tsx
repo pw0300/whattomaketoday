@@ -131,8 +131,10 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
 
   const isEmpty = Object.values(categorizedIngredients).every((list) => (list as GroceryItem[]).length === 0);
 
-  const totalItems = Object.values(categorizedIngredients).reduce((acc, list) => acc + list.length, 0);
-  const checkedItems = Object.values(categorizedIngredients).flat().filter(i => checkStock(i.name)).length;
+  // Fix: Explicitly cast Object.values result to handle unknown type inference
+  const lists = Object.values(categorizedIngredients) as GroceryItem[][];
+  const totalItems = lists.reduce((acc, list) => acc + list.length, 0);
+  const checkedItems = lists.flat().filter(i => checkStock(i.name)).length;
   const progress = totalItems > 0 ? (checkedItems / totalItems) * 100 : 0;
 
   return (
@@ -182,7 +184,8 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
             </button>
         )}
 
-        {(Object.entries(categorizedIngredients)).map(([category, items]) => {
+        {/* Fix: Explicitly cast Object.entries result to handle unknown type inference */}
+        {(Object.entries(categorizedIngredients) as [string, GroceryItem[]][]).map(([category, items]) => {
           // SORTING LOGIC: 
           // 1. Unchecked first
           // 2. Then Alphabetical by Name (so identical items group together)
