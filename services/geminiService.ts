@@ -114,10 +114,11 @@ const cleanJson = (text: string) => {
 };
 
 export const analyzeHealthReport = async (file: File): Promise<string> => {
-    if (!process.env.API_KEY) return "Error: API Key missing";
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) return "Error: API Key missing";
 
     try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const ai = new GoogleGenAI({ apiKey });
         const base64 = await fileToBase64(file);
         
         const response = await ai.models.generateContent({
@@ -138,14 +139,15 @@ export const analyzeHealthReport = async (file: File): Promise<string> => {
 };
 
 export const generateNewDishes = async (
-  count: number, 
+  count: number,
   userProfile: UserProfile,
   context: VibeMode = 'Explorer'
 ): Promise<Dish[]> => {
-  if (!process.env.API_KEY) return [];
-  
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  if (!apiKey) return [];
+
   try {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey });
     
     // We use search grounding here to get real, trending recipes
     const prompt = `Act as an Executive Chef planning a high-end home menu. Generate ${count} distinct meal ideas. 
@@ -201,10 +203,11 @@ export const generateNewDishes = async (
 
 // Feature: Image Generation with Size Control
 const generateDishImage = async (dishName: string, description: string, size: ImageSize): Promise<string> => {
-    if (!process.env.API_KEY) return `https://picsum.photos/400/400?random=${Math.floor(Math.random() * 1000)}`;
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) return `https://picsum.photos/400/400?random=${Math.floor(Math.random() * 1000)}`;
 
     try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const ai = new GoogleGenAI({ apiKey });
         const response = await ai.models.generateContent({
             model: 'gemini-3-pro-image-preview', // Feature: High quality image gen
             contents: {
@@ -231,14 +234,15 @@ const generateDishImage = async (dishName: string, description: string, size: Im
 
 // Feature: Multi-modal Analysis (Text, Image, Video, Pantry)
 export const analyzeAndGenerateDish = async (
-    type: 'text' | 'image' | 'video' | 'pantry', 
+    type: 'text' | 'image' | 'video' | 'pantry',
     input: string | File,
     imageSize: ImageSize = '1K',
     userProfile?: UserProfile,
     customInstruction?: string
 ): Promise<Dish | null> => {
-    if (!process.env.API_KEY) return null;
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) return null;
+    const ai = new GoogleGenAI({ apiKey });
 
     try {
         let contents: any;
@@ -326,8 +330,9 @@ export const analyzeAndGenerateDish = async (
 
 // FEATURE: Generate Hindi Voice Instructions
 export const generateVoiceBriefing = async (plan: DayPlan[]): Promise<string | null> => {
-    if (!process.env.API_KEY) return null;
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) return null;
+    const ai = new GoogleGenAI({ apiKey });
 
     // Filter for meaningful notes to keep it concise
     const instructions = plan.filter(d =>
