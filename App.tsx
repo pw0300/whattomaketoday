@@ -484,9 +484,9 @@ const App: React.FC = () => {
       <div className="h-screen flex flex-col items-center justify-center bg-paper text-ink p-8 text-center">
         {/* IMPROVED SEEDING VISUAL */}
         <div className="w-full max-w-xs font-mono text-xs text-left">
-            <div className="mb-2 text-green-600"> > INIT_DB_CONNECTION... OK</div>
-            <div className="mb-2 text-green-600"> > PARSING_USER_PREFS... OK</div>
-            <div className="mb-2 text-brand-600 animate-pulse"> > QUERYING_GEMINI_NODE...</div>
+            <div className="mb-2 text-green-600"> {`>`} INIT_DB_CONNECTION... OK</div>
+            <div className="mb-2 text-green-600"> {`>`} PARSING_USER_PREFS... OK</div>
+            <div className="mb-2 text-brand-600 animate-pulse"> {`>`} QUERYING_GEMINI_NODE...</div>
             <div className="h-32 border border-ink p-2 mt-4 bg-white opacity-50 flex flex-col-reverse overflow-hidden">
                 <span className="opacity-30">Generating dish_id: 8829...</span>
                 <span className="opacity-50">Validating macros...</span>
