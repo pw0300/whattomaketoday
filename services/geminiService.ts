@@ -122,7 +122,7 @@ export const analyzeHealthReport = async (file: File): Promise<string> => {
         const base64 = await fileToBase64(file);
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.0-flash-exp',
+            model: 'gemini-1.5-flash',
             contents: {
                 parts: [
                     { inlineData: { mimeType: file.type, data: base64 } },
@@ -170,7 +170,7 @@ export const generateNewDishes = async (
     Return a list of dishes with macros, ingredients, step-by-step cooking instructions, and tags.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash-exp',
+      model: 'gemini-1.5-flash',
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -225,7 +225,7 @@ export const analyzeAndGenerateDish = async (
         const extraInstruction = customInstruction ? `**Additional User Instruction:** "${customInstruction}"` : '';
 
         if (type === 'text') {
-            model = 'gemini-2.0-flash-exp'; // Faster for text
+            model = 'gemini-1.5-flash'; // Faster for text
             contents = `Find a real recipe based on this description: "${input}".
             ${constraints}
             ${extraInstruction}
@@ -233,7 +233,7 @@ export const analyzeAndGenerateDish = async (
         } else if (type === 'pantry' && typeof input === 'string') {
             // Reverse Search / Mystery Basket Mode
             // STRICT MODE: We instruct the model to prioritize ONLY the given ingredients.
-            model = 'gemini-2.0-flash-exp';
+            model = 'gemini-1.5-flash';
             contents = `Act as a creative chef participating in a 'Mystery Basket' challenge (Iron Chef Style). 
             The available ingredients (Pantry Stock) are: ${input}.
             
@@ -247,7 +247,7 @@ export const analyzeAndGenerateDish = async (
             Create a cohesive, high-quality dish using these restrictions.
             Return JSON matching the schema.`;
         } else if (type === 'image' && input instanceof File) {
-            model = 'gemini-2.0-flash-exp';
+            model = 'gemini-1.5-flash';
             const base64 = await fileToBase64(input);
             contents = {
                 parts: [
@@ -256,7 +256,7 @@ export const analyzeAndGenerateDish = async (
                 ]
             };
         } else if (type === 'video' && input instanceof File) {
-            model = 'gemini-2.0-flash-exp';
+            model = 'gemini-1.5-flash';
             const base64 = await fileToBase64(input);
             contents = {
                 parts: [
