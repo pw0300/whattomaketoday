@@ -1,18 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, useMotionValue, useTransform, PanInfo, AnimatePresence } from 'framer-motion';
 import { Dish, SwipeDirection, ImageSize, UserProfile } from '../types';
-import { Heart, X, Star, Link2, Sparkles, Loader2, UploadCloud, Info, Quote, ShoppingBasket, MessageSquarePlus, RefreshCcw, RotateCcw, Grid3X3, Layers, Search, Trash2, Edit } from 'lucide-react';
+import { Heart, X, Star, Link2, Sparkles, Loader2, UploadCloud, Info, Quote, ShoppingBasket, MessageSquarePlus, RefreshCcw, RotateCcw, Grid3X3, Layers, Search, Trash2, Edit, PackageCheck } from 'lucide-react';
 import { analyzeAndGenerateDish } from '../services/geminiService';
 
 interface Props {
   dishes: Dish[];
-  approvedDishes: Dish[]; // NEW PROP
+  approvedDishes: Dish[]; 
   approvedCount: number;
   onSwipe: (dishId: string, direction: SwipeDirection) => void;
   onUndo?: () => void;
   onModify: (dish: Dish) => void;
   onImport: (dish: Dish) => void;
-  onDelete: (dishId: string) => void; // NEW PROP
+  onDelete: (dishId: string) => void; 
   pantryStock: string[];
   userProfile: UserProfile;
   initialImportTab?: 'text' | 'image' | 'video' | 'pantry' | null;
@@ -58,6 +58,41 @@ const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onS
   const currentDish = dishes[activeIndex];
   const isDeckEmpty = !currentDish || activeIndex >= dishes.length;
   const goal = 7; 
+  
+  // Calculate Pantry Match Percentage
+  const getPantryMatch = (dish: Dish) => {
+      if (!dish || dish.ingredients.length === 0) return 0;
+      
+      const normalize = (s: string) => s.toLowerCase().trim();
+      const singularize = (s: string) => {
+          if (s.endsWith('ies')) return s.slice(0, -3) + 'y';
+          if (s.endsWith('es')) return s.slice(0, -2);
+          if (s.endsWith('s') && !s.endsWith('ss')) return s.slice(0, -1);
+          return s;
+      };
+
+      let matchCount = 0;
+      dish.ingredients.forEach(ing => {
+          const target = normalize(ing.name);
+          const targetSingular = singularize(target);
+          
+          const inStock = pantryStock.some(pantryItem => {
+              const item = normalize(pantryItem);
+              const itemSingular = singularize(item);
+              if (item === target) return true;
+              if (itemSingular === targetSingular) return true;
+              if (target.includes(itemSingular)) return true;
+              return false;
+          });
+
+          if (inStock) matchCount++;
+      });
+      
+      return Math.round((matchCount / dish.ingredients.length) * 100);
+  };
+
+  const currentMatch = currentDish ? getPantryMatch(currentDish) : 0;
+
 
   const triggerFeedback = (direction: SwipeDirection) => {
     if (direction === SwipeDirection.Right) {
@@ -401,6 +436,13 @@ const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onS
                         <div className="inline-block border-b-2 border-brand-500 pb-1 mb-4">
                             <p className="text-lg font-serif italic text-gray-600">{currentDish.localName}</p>
                         </div>
+                        
+                        {/* Pantry Match Badge */}
+                        <div className={`mb-4 flex items-center justify-center gap-1.5 px-3 py-1 rounded-full border-2 text-[10px] font-bold uppercase ${currentMatch >= 75 ? 'border-green-500 text-green-700 bg-green-50' : currentMatch >= 40 ? 'border-yellow-500 text-yellow-700 bg-yellow-50' : 'border-gray-200 text-gray-400 bg-gray-50'}`}>
+                             <PackageCheck size={12} />
+                             {currentMatch}% In Stock
+                        </div>
+
                         <p className="font-mono text-xs leading-relaxed text-gray-600 border-l-2 border-gray-300 pl-3 text-left">
                             {currentDish.description}
                         </p>

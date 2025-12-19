@@ -1,22 +1,41 @@
 import React, { useState, useEffect } from 'react';
-import { Dish } from '../types';
-import { Save, X, ChefHat, ScrollText, Users, Play, CheckCircle, Circle, ArrowLeft, Maximize2 } from 'lucide-react';
+import { Dish, Ingredient } from '../types';
+import { Save, X, ChefHat, ScrollText, Users, Play, CheckCircle, Circle, ArrowLeft, Maximize2, Trash2, CheckSquare, Square } from 'lucide-react';
 
 interface Props {
   dish: Dish;
   onClose: () => void;
   onSave: (dishId: string, notes: string, servings: number) => void;
+  onCook?: (dish: Dish, usedIngredients: string[]) => void; // NEW PROP
 }
 
-const DishModal: React.FC<Props> = ({ dish, onClose, onSave }) => {
+const DishModal: React.FC<Props> = ({ dish, onClose, onSave, onCook }) => {
   const [notes, setNotes] = useState(dish.userNotes || '');
   const [tab, setTab] = useState<'recipe' | 'notes'>('recipe');
   const [servings, setServings] = useState(dish.servings || 1); 
   const [chefMode, setChefMode] = useState(false);
+  
+  // Depletion State
+  const [showDepletion, setShowDepletion] = useState(false);
+  const [ingredientsToRemove, setIngredientsToRemove] = useState<Set<string>>(new Set());
 
   // Chef Mode State
   const [checkedIngredients, setCheckedIngredients] = useState<Set<number>>(new Set());
   const [checkedSteps, setCheckedSteps] = useState<Set<number>>(new Set());
+
+  // Initialize Depletion logic: Auto-select Fresh items
+  useEffect(() => {
+    if (showDepletion) {
+        const freshItems = new Set<string>();
+        dish.ingredients.forEach(ing => {
+            // Smart Logic: Default to removing Fresh items, keeping Staples
+            if (['Produce', 'Protein', 'Dairy'].includes(ing.category)) {
+                freshItems.add(ing.name);
+            }
+        });
+        setIngredientsToRemove(freshItems);
+    }
+  }, [showDepletion, dish.ingredients]);
 
   // Disable body scroll when in Chef Mode
   useEffect(() => {
@@ -40,6 +59,21 @@ const DishModal: React.FC<Props> = ({ dish, onClose, onSave }) => {
       if (next.has(idx)) next.delete(idx);
       else next.add(idx);
       setCheckedSteps(next);
+  };
+
+  const toggleDepletionItem = (name: string) => {
+      const next = new Set(ingredientsToRemove);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      setIngredientsToRemove(next);
+  };
+
+  const handleFinishService = () => {
+      if (onCook) {
+          onCook(dish, Array.from(ingredientsToRemove));
+      }
+      setChefMode(false);
+      onClose();
   };
 
   // --- MATH ENGINE START ---
@@ -96,6 +130,36 @@ const DishModal: React.FC<Props> = ({ dish, onClose, onSave }) => {
   if (chefMode) {
       return (
           <div className="fixed inset-0 z-[60] bg-ink text-white flex flex-col animate-in slide-in-from-bottom duration-300">
+              
+              {/* Depletion Dialog Overlay */}
+              {showDepletion && (
+                  <div className="absolute inset-0 z-[70] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6">
+                      <div className="bg-paper text-ink w-full max-w-sm p-6 shadow-hard border-2 border-white animate-in zoom-in-95 duration-200">
+                          <h3 className="font-black uppercase text-xl mb-1">Inventory Depletion</h3>
+                          <p className="font-mono text-xs text-gray-600 mb-4">Confirm items consumed during service to update pantry.</p>
+                          
+                          <div className="max-h-60 overflow-y-auto mb-6 border-y-2 border-gray-200 py-2">
+                              {dish.ingredients.map((ing) => (
+                                  <div key={ing.name} onClick={() => toggleDepletionItem(ing.name)} className="flex items-center gap-3 p-2 cursor-pointer hover:bg-yellow-50">
+                                      {ingredientsToRemove.has(ing.name) ? <CheckSquare size={18} className="text-red-500" /> : <Square size={18} className="text-gray-400" />}
+                                      <div>
+                                          <p className={`font-bold text-sm ${ingredientsToRemove.has(ing.name) ? 'line-through text-gray-400' : 'text-ink'}`}>{ing.name}</p>
+                                          <p className="text-[10px] uppercase font-bold text-gray-400">{ing.category}</p>
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+
+                          <div className="flex gap-3">
+                              <button onClick={() => setShowDepletion(false)} className="flex-1 py-3 font-bold uppercase border-2 border-ink hover:bg-gray-100">Cancel</button>
+                              <button onClick={handleFinishService} className="flex-1 py-3 font-black uppercase bg-red-500 text-white border-2 border-ink shadow-hard hover:translate-y-1 hover:shadow-none transition-all">
+                                  Confirm Update
+                              </button>
+                          </div>
+                      </div>
+                  </div>
+              )}
+
               {/* Chef Header */}
               <div className="flex items-center justify-between p-4 border-b border-white/20 bg-ink sticky top-0 z-10">
                   <button onClick={() => setChefMode(false)} className="p-2 -ml-2 text-gray-400 hover:text-white">
@@ -164,8 +228,14 @@ const DishModal: React.FC<Props> = ({ dish, onClose, onSave }) => {
                       </div>
                   </section>
                   
-                  <div className="pt-8 text-center opacity-50">
-                      <p className="font-mono text-[10px] uppercase">Screen Wake Lock Active</p>
+                  <div className="pt-8 text-center pb-8">
+                      <button 
+                        onClick={() => setShowDepletion(true)}
+                        className="w-full bg-white text-ink font-black uppercase py-4 tracking-widest hover:bg-gray-100 transition-colors"
+                      >
+                        Finish Service
+                      </button>
+                      <p className="font-mono text-[10px] uppercase mt-4 opacity-50">Screen Wake Lock Active</p>
                   </div>
               </div>
           </div>

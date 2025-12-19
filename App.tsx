@@ -11,10 +11,23 @@ import PantryView from './components/PantryView';
 import ProfileView from './components/ProfileView';
 import DishModal from './components/DishModal';
 import Receipt from './components/Receipt';
+import CookView from './components/CookView'; // Import the new view
 import { LayoutGrid, Layers, ClipboardList, Package, Settings, Loader2, AlertTriangle } from 'lucide-react';
 
 const App: React.FC = () => {
-  // State
+  // --- COOK VIEW ROUTING CHECK ---
+  // If the URL has ?view=cook, we render the CookView immediately and bypass everything else.
+  // In a real app, this would be a proper route.
+  const isCookView = useMemo(() => {
+      const params = new URLSearchParams(window.location.search);
+      return params.get('view') === 'cook';
+  }, []);
+
+  if (isCookView) {
+      return <CookView />;
+  }
+
+  // --- STANDARD APP STATE ---
   const [view, setView] = useState<AppView>(AppView.Onboarding);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   
@@ -301,6 +314,42 @@ const App: React.FC = () => {
     })));
   };
 
+  const handleCookDish = (dish: Dish, usedIngredients: string[]) => {
+      setPantryStock(prev => {
+          // Normalize ingredients to remove (lowercase, trim)
+          const toRemove = new Set(usedIngredients.map(i => i.toLowerCase().trim()));
+          
+          return prev.filter(pantryItem => {
+              // Check if pantry item matches any of the removed items (fuzzy match logic reversed)
+              const normalize = (s: string) => s.toLowerCase().trim();
+              const item = normalize(pantryItem);
+              
+              // If the pantry item is in the 'toRemove' list, filter it out
+              // We need to match against the dish ingredients that were selected
+              
+              // Simple check: is this pantry item's normalized name in the set?
+              if (toRemove.has(item)) return false;
+
+              // Check for partial matches or singular/plural issues if needed
+              // For now, strict name matching on what was presented in the UI is safest
+              // The UI in DishModal used the dish's ingredient names.
+              // Pantry stock might be "Onions" while dish has "Onion". 
+              // We rely on the user confirming the removal in the UI, which lists dish ingredients.
+              // So we need to match pantry stock against those names.
+              
+              // If pantry item "Onions" contains "Onion" (from removal list), remove it?
+              // Let's iterate the toRemove set and see if pantry item fuzzy matches
+              for (const removalTarget of toRemove) {
+                  if (item.includes(removalTarget) || removalTarget.includes(item)) {
+                      return false; // Remove it
+                  }
+              }
+
+              return true; // Keep it
+          });
+      });
+  };
+
   const handleRequestMoreDishes = async (context: VibeMode) => {
     if (!userProfile) return;
     const newDishes = await generateNewDishes(5, userProfile, context);
@@ -368,10 +417,19 @@ const App: React.FC = () => {
     }
 
     message += `\n------------------\n`;
+    
+    // GENERATE LINK (Safe Unicode Encoding)
+    const jsonString = JSON.stringify(weeklyPlan);
+    // Use encodeURIComponent to handle unicode characters before btoa
+    const data = btoa(encodeURIComponent(jsonString));
+    const url = `${window.location.origin}${window.location.pathname}?view=cook&data=${encodeURIComponent(data)}`;
+    
+    message += `📲 *LIVE KITCHEN DISPLAY:*\n${url}\n\n`;
+
     message += `⚡ *Powered by ChefSync*`;
 
-    const url = `whatsapp://send?text=${encodeURIComponent(message)}`;
-    window.location.href = url;
+    const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
+    window.location.href = whatsappUrl;
   };
 
   // Nav Component
@@ -478,6 +536,7 @@ const App: React.FC = () => {
             onPlanUpdate={setWeeklyPlan}
             onRequestMoreDishes={handleRequestMoreDishes}
             onPublish={() => setShowReceipt(true)}
+            pantryStock={pantryStock} // PASSING STOCK FOR MAGIC FILL
           />
         )}
         {view === AppView.Shopping && (
@@ -513,6 +572,7 @@ const App: React.FC = () => {
           dish={modifyingDish} 
           onClose={() => setModifyingDish(null)}
           onSave={handleModificationSave}
+          onCook={handleCookDish}
         />
       )}
 

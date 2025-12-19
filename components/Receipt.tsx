@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { DayPlan } from '../types';
-import { Share2, X, Printer, Barcode } from 'lucide-react';
+import { Share2, X, Printer, Barcode, Mic, Play, Download, Loader2 } from 'lucide-react';
+import { generateVoiceBriefing } from '../services/geminiService';
 
 interface Props {
   plan: DayPlan[];
@@ -10,6 +11,49 @@ interface Props {
 }
 
 const Receipt: React.FC<Props> = ({ plan, missingIngredients, onClose, onSend }) => {
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+
+  const handleGenerateVoice = async () => {
+      setIsGeneratingAudio(true);
+      const base64Wav = await generateVoiceBriefing(plan);
+      if (base64Wav) {
+          const blob = await (await fetch(`data:audio/wav;base64,${base64Wav}`)).blob();
+          const url = URL.createObjectURL(blob);
+          setAudioUrl(url);
+      } else {
+          alert("No special notes detected to voice, or generation failed.");
+      }
+      setIsGeneratingAudio(false);
+  };
+
+  const handleShareAudio = async () => {
+      if (!audioUrl) return;
+      
+      try {
+          const blob = await (await fetch(audioUrl)).blob();
+          const file = new File([blob], "Cook_Instructions.wav", { type: "audio/wav" });
+          
+          if (navigator.canShare && navigator.canShare({ files: [file] })) {
+              await navigator.share({
+                  files: [file],
+                  title: 'Cook Instructions (Hindi)',
+                  text: 'Please listen to these special instructions.'
+              });
+          } else {
+              // Fallback to download
+              const a = document.createElement('a');
+              a.href = audioUrl;
+              a.download = "Cook_Instructions.wav";
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+          }
+      } catch (e) {
+          console.error("Sharing failed", e);
+      }
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4 animate-in fade-in duration-300">
       <div className="w-full max-w-sm relative">
@@ -43,7 +87,7 @@ const Receipt: React.FC<Props> = ({ plan, missingIngredients, onClose, onSend })
            </div>
 
            {/* Content Scroll */}
-           <div className="px-6 py-4 space-y-6 max-h-[60vh] overflow-y-auto no-scrollbar">
+           <div className="px-6 py-4 space-y-6 max-h-[50vh] overflow-y-auto no-scrollbar">
              
              {/* Meals Section */}
              <div>
@@ -129,14 +173,38 @@ const Receipt: React.FC<Props> = ({ plan, missingIngredients, onClose, onSend })
            </div>
         </div>
 
-        {/* Action Button */}
-        <button 
-          onClick={onSend}
-          className="w-full mt-8 bg-brand-500 text-white py-4 font-black uppercase tracking-widest shadow-[4px_4px_0px_0px_rgba(255,255,255,0.3)] hover:shadow-none hover:translate-y-1 transition-all flex items-center justify-center gap-3 border-2 border-white"
-        >
-          <Share2 size={20} strokeWidth={3} />
-          Export Manifest
-        </button>
+        {/* Action Button Group */}
+        <div className="mt-6 flex flex-col gap-3">
+            {/* VOICE NOTE CONTROL */}
+            {!audioUrl ? (
+                 <button 
+                 onClick={handleGenerateVoice}
+                 disabled={isGeneratingAudio}
+                 className="w-full bg-white text-ink py-3 font-bold uppercase tracking-widest border-2 border-white/20 hover:bg-white/90 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+               >
+                 {isGeneratingAudio ? <Loader2 className="animate-spin" /> : <Mic size={20} />}
+                 {isGeneratingAudio ? "Generating Hindi Voice..." : "Create Voice Note"}
+               </button>
+            ) : (
+                <div className="bg-white rounded-lg p-3 flex items-center gap-3">
+                    <audio src={audioUrl} controls className="flex-1 h-8 w-full" />
+                    <button onClick={handleShareAudio} className="bg-green-500 text-white p-2 rounded-full hover:bg-green-600 transition">
+                        <Share2 size={16} />
+                    </button>
+                    <button onClick={() => setAudioUrl(null)} className="text-gray-400 p-2 hover:text-red-500">
+                        <X size={16} />
+                    </button>
+                </div>
+            )}
+
+            <button 
+            onClick={onSend}
+            className="w-full bg-brand-500 text-white py-4 font-black uppercase tracking-widest shadow-[4px_4px_0px_0px_rgba(255,255,255,0.3)] hover:shadow-none hover:translate-y-1 transition-all flex items-center justify-center gap-3 border-2 border-white"
+            >
+                <Share2 size={20} strokeWidth={3} />
+                Send Text Manifest
+            </button>
+        </div>
       </div>
     </div>
   );

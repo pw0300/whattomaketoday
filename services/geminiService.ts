@@ -1,5 +1,5 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import { Dish, Allergen, VibeMode, ImageSize, Cuisine, DietaryPreference, UserProfile } from '../types';
+import { GoogleGenAI, Type, Modality } from "@google/genai";
+import { Dish, Allergen, VibeMode, ImageSize, Cuisine, DietaryPreference, UserProfile, DayPlan } from '../types';
 
 // Helper to convert Blob/File to Base64
 const fileToBase64 = (file: File): Promise<string> => {
@@ -14,6 +14,45 @@ const fileToBase64 = (file: File): Promise<string> => {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
+};
+
+// WAV Header Helper for Raw PCM (24kHz, 16-bit, Mono)
+const addWavHeader = (pcmData: Uint8Array, sampleRate: number = 24000, numChannels: number = 1): ArrayBuffer => {
+    const header = new ArrayBuffer(44);
+    const view = new DataView(header);
+    const dataSize = pcmData.length;
+    
+    const writeString = (view: DataView, offset: number, string: string) => {
+        for (let i = 0; i < string.length; i++) {
+            view.setUint8(offset + i, string.charCodeAt(i));
+        }
+    };
+
+    // RIFF chunk descriptor
+    writeString(view, 0, 'RIFF');
+    view.setUint32(4, 36 + dataSize, true);
+    writeString(view, 8, 'WAVE');
+    
+    // fmt sub-chunk
+    writeString(view, 12, 'fmt ');
+    view.setUint32(16, 16, true); // Subchunk1Size (16 for PCM)
+    view.setUint16(20, 1, true); // AudioFormat (1 for PCM)
+    view.setUint16(22, numChannels, true); // NumChannels
+    view.setUint32(24, sampleRate, true); // SampleRate
+    view.setUint32(28, sampleRate * numChannels * 2, true); // ByteRate
+    view.setUint16(32, numChannels * 2, true); // BlockAlign
+    view.setUint16(34, 16, true); // BitsPerSample
+    
+    // data sub-chunk
+    writeString(view, 36, 'data');
+    view.setUint32(40, dataSize, true);
+    
+    // Concatenate header and data
+    const wavFile = new Uint8Array(44 + dataSize);
+    wavFile.set(new Uint8Array(header), 0);
+    wavFile.set(pcmData, 44);
+    
+    return wavFile.buffer;
 };
 
 const DISH_SCHEMA = {
@@ -281,6 +320,80 @@ export const analyzeAndGenerateDish = async (
 
     } catch (error) {
         console.error("Gemini Analysis Error:", error);
+        return null;
+    }
+};
+
+// FEATURE: Generate Hindi Voice Instructions
+export const generateVoiceBriefing = async (plan: DayPlan[]): Promise<string | null> => {
+    if (!process.env.API_KEY) return null;
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+    // Filter for meaningful notes to keep it concise
+    const instructions = plan.filter(d =>
+        (d.lunch && d.lunch.userNotes) ||
+        (d.dinner && d.dinner.userNotes) ||
+        (d.lunch && d.lunch.chefAdvice) ||
+        (d.dinner && d.dinner.chefAdvice)
+    ).map(d => ({
+        day: d.day,
+        lunch: d.lunch ? { name: d.lunch.localName || d.lunch.name, notes: d.lunch.userNotes, chefTip: d.lunch.chefAdvice } : null,
+        dinner: d.dinner ? { name: d.dinner.localName || d.dinner.name, notes: d.dinner.userNotes, chefTip: d.dinner.chefAdvice } : null
+    }));
+
+    if (instructions.length === 0) return null; // No special notes
+
+    const promptText = `
+    Roleplay: You are an older Indian 'Dadi' (grandmother) instructing your household cook.
+    Context: Here are the special cooking instructions for this week: ${JSON.stringify(instructions)}.
+    Task: Speak a friendly, authoritative, but caring message in HINDI to the cook.
+    Instructions:
+    - Don't list every meal. Focus ONLY on the exceptions, 'userNotes', and 'chefAdvice'.
+    - Use phrases like "Beta, suno", "Dhyan rakhna", "Kam tel use karna".
+    - Keep it under 40 seconds.
+    - If there are no major notes, just give a general blessing and say "follow the list".
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-preview-tts",
+            contents: [{ parts: [{ text: promptText }] }],
+            config: {
+                responseModalities: [Modality.AUDIO],
+                speechConfig: {
+                    voiceConfig: {
+                        prebuiltVoiceConfig: { voiceName: 'Kore' }, // Female voice
+                    },
+                },
+            },
+        });
+
+        // The response contains raw PCM audio data in base64
+        const rawBase64 = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+        
+        if (rawBase64) {
+             // Convert Base64 to Uint8Array
+            const binaryString = atob(rawBase64);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            
+            // Add WAV Header
+            const wavBuffer = addWavHeader(bytes);
+            
+            // Convert back to base64 for the frontend to consume easily
+            let binary = '';
+            const wavBytes = new Uint8Array(wavBuffer);
+            for (let i = 0; i < wavBytes.byteLength; i++) {
+                binary += String.fromCharCode(wavBytes[i]);
+            }
+            return btoa(binary);
+        }
+        return null;
+
+    } catch (e) {
+        console.error("Voice Gen Failed", e);
         return null;
     }
 };

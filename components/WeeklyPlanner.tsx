@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Dish, DayPlan, VibeMode, UserProfile } from '../types';
 import { DAYS_OF_WEEK } from '../constants';
-import { RefreshCw, Zap, Coffee, RotateCw, Send, ArrowDownCircle, Eraser, Lock, Unlock } from 'lucide-react';
+import { RefreshCw, Zap, Coffee, RotateCw, Send, ArrowDownCircle, Eraser, Lock, Unlock, Sparkles, Link as LinkIcon, Copy, CheckSquare } from 'lucide-react';
 
 interface Props {
   approvedDishes: Dish[];
@@ -9,13 +9,15 @@ interface Props {
   onPlanUpdate: (plan: DayPlan[]) => void;
   onRequestMoreDishes: (context: VibeMode) => void;
   onPublish: () => void;
+  pantryStock?: string[]; // New Prop
 }
 
-const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpdate, onRequestMoreDishes, onPublish }) => {
+const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpdate, onRequestMoreDishes, onPublish, pantryStock = [] }) => {
   const [mode, setMode] = useState<VibeMode>('Comfort');
   const [weekPlan, setWeekPlan] = useState<DayPlan[]>([]);
   const [regenerating, setRegenerating] = useState(false);
   const [swappingSlot, setSwappingSlot] = useState<{dayIndex: number, type: 'lunch' | 'dinner'} | null>(null);
+  const [showLinkCopied, setShowLinkCopied] = useState(false);
 
   // Load from LocalStorage on mount
   useEffect(() => {
@@ -32,8 +34,9 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
         console.error("Failed to parse saved plan", e);
       }
     }
-    generatePlan('Comfort');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Initialize empty if no save
+    const blankPlan = DAYS_OF_WEEK.map(day => ({ day, lunch: null, dinner: null, isLocked: false }));
+    setWeekPlan(blankPlan);
   }, []);
 
   useEffect(() => {
@@ -43,7 +46,7 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
   }, [weekPlan]);
 
   // MOAT LOGIC: Advanced Dish Selection
-  const getDishFromPool = (pool: Dish[], typeFilter?: 'Lunch' | 'Dinner', excludeIds: string[] = [], recentIds: string[] = []) => {
+  const getDishFromPool = (pool: Dish[], typeFilter?: 'Lunch' | 'Dinner', excludeIds: string[] = [], recentIds: string[] = [], prioritizePantry = false) => {
     let candidates = pool.filter(d => !excludeIds.includes(d.id));
     if (typeFilter) {
        if (typeFilter === 'Lunch') {
@@ -57,7 +60,21 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
         if (candidates.length === 0) return null;
     }
     const freshCandidates = candidates.filter(d => !recentIds.includes(d.id));
-    const finalPool = freshCandidates.length > 0 ? freshCandidates : candidates;
+    let finalPool = freshCandidates.length > 0 ? freshCandidates : candidates;
+
+    // --- PANTRY PRIORITIZATION LOGIC ---
+    if (prioritizePantry && pantryStock.length > 0) {
+        const pantryPool = finalPool.filter(d => {
+            // Very basic fuzzy check: Does the dish use at least one ingredient we have?
+            return d.ingredients.some(ing => 
+                pantryStock.some(s => s.toLowerCase().includes(ing.name.toLowerCase()) || ing.name.toLowerCase().includes(s.toLowerCase()))
+            );
+        });
+        if (pantryPool.length > 0) {
+            finalPool = pantryPool; // Narrow down to pantry options
+        }
+    }
+
     const weightedPool: Dish[] = [];
     finalPool.forEach(d => {
         weightedPool.push(d);
@@ -66,6 +83,7 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
     return weightedPool[Math.floor(Math.random() * weightedPool.length)];
   };
 
+  // The Original "Generate Whole Week"
   const generatePlan = (targetMode: VibeMode) => {
     setRegenerating(true);
     setTimeout(() => {
@@ -74,11 +92,9 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
 
       const recentHistory: string[] = []; 
       
-      // CRITICAL UPDATE: Respect Locked Days
       const newPlan: DayPlan[] = weekPlan.length > 0 
         ? weekPlan.map((existingDay, idx) => {
             if (existingDay.isLocked) {
-                // Keep history updated so adjacent days don't repeat this day's meals
                 if (existingDay.lunch) recentHistory.push(existingDay.lunch.id);
                 if (existingDay.dinner) recentHistory.push(existingDay.dinner.id);
                 return existingDay;
@@ -97,23 +113,51 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
             return { day: DAYS_OF_WEEK[idx], lunch, dinner, isLocked: false };
         })
         : DAYS_OF_WEEK.map(day => {
-            const lunch = getDishFromPool(pool, 'Lunch', [], recentHistory);
-            if (lunch) {
-                recentHistory.push(lunch.id);
-                if (recentHistory.length > 3) recentHistory.shift(); 
-            }
-            const dinner = getDishFromPool(pool, 'Dinner', lunch ? [lunch.id] : [], recentHistory);
-            if (dinner) {
-                recentHistory.push(dinner.id);
-                if (recentHistory.length > 3) recentHistory.shift();
-            }
-            return { day, lunch, dinner, isLocked: false };
+            return { day, lunch: null, dinner: null, isLocked: false }; 
         });
 
       setWeekPlan(newPlan);
       onPlanUpdate(newPlan);
       setRegenerating(false);
     }, 800);
+  };
+
+  // --- NEW FEATURE: MAGIC FILL (Autopilot) ---
+  const handleMagicFill = () => {
+      setRegenerating(true);
+      setTimeout(() => {
+          let pool = filterPoolByMode(mode);
+          if (pool.length < 3) {
+             alert("Not enough approved dishes to auto-fill. Swipe right on more dishes!");
+             setRegenerating(false);
+             return;
+          }
+
+          const todayIdx = new Date().getDay() - 1; // 0=Mon
+          const safeTodayIdx = todayIdx < 0 ? 0 : todayIdx;
+          
+          const newPlan = [...weekPlan];
+          const recentHistory: string[] = [];
+
+          // Only fill Today + Next 2 days
+          for (let i = 0; i < 7; i++) {
+              if (i >= safeTodayIdx && i <= safeTodayIdx + 2) {
+                  if (newPlan[i].isLocked) continue;
+
+                  // Prioritize Pantry for Magic Fill
+                  const lunch = getDishFromPool(pool, 'Lunch', [], recentHistory, true);
+                  if (lunch) recentHistory.push(lunch.id);
+                  
+                  const dinner = getDishFromPool(pool, 'Dinner', lunch ? [lunch.id] : [], recentHistory, true);
+                  if (dinner) recentHistory.push(dinner.id);
+
+                  newPlan[i] = { ...newPlan[i], lunch, dinner };
+              }
+          }
+          setWeekPlan(newPlan);
+          onPlanUpdate(newPlan);
+          setRegenerating(false);
+      }, 600);
   };
 
   const filterPoolByMode = (targetMode: VibeMode) => {
@@ -193,6 +237,19 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
     generatePlan(newMode);
   };
 
+  // --- NEW FEATURE: SHARE LINK ---
+  const handleCopyLink = () => {
+      // Serialize plan to base64 with robust unicode handling
+      const jsonString = JSON.stringify(weekPlan);
+      const data = btoa(encodeURIComponent(jsonString));
+      const url = `${window.location.origin}${window.location.pathname}?view=cook&data=${encodeURIComponent(data)}`;
+      
+      navigator.clipboard.writeText(url).then(() => {
+          setShowLinkCopied(true);
+          setTimeout(() => setShowLinkCopied(false), 2000);
+      });
+  };
+
   return (
     <div className="flex flex-col h-full bg-paper">
       {/* Header */}
@@ -208,6 +265,23 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
                 </button>
             </div>
         </div>
+        
+        {/* Magic Fill Banner */}
+        <button 
+            onClick={handleMagicFill}
+            disabled={regenerating}
+            className="w-full mb-4 bg-brand-100 border-2 border-brand-500 text-brand-900 p-3 flex items-center justify-between shadow-sm active:translate-y-1 transition-all"
+        >
+            <div className="flex items-center gap-2">
+                <Sparkles size={18} className={regenerating ? 'animate-spin' : ''} />
+                <div className="text-left">
+                    <span className="block font-black uppercase text-xs">Kitchen Autopilot</span>
+                    <span className="block text-[10px] opacity-75">Auto-Fill next 3 days based on pantry</span>
+                </div>
+            </div>
+            <div className="bg-brand-500 text-white px-2 py-1 text-[10px] font-bold uppercase">Run</div>
+        </button>
+
         <div className="flex gap-2">
           {(['Strict', 'Comfort', 'Explorer'] as VibeMode[]).map((m) => (
             <button
@@ -328,17 +402,20 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
       
       {/* FABs */}
       <div className="absolute bottom-24 right-6 flex flex-col gap-4 items-end">
+        {/* SHARE LINK BUTTON (Matches App.tsx behavior now) */}
+        <button 
+          onClick={handleCopyLink}
+          className="bg-white text-ink px-5 py-3 border-2 border-ink shadow-hard hover:translate-y-1 hover:shadow-none transition-all active:bg-gray-100 flex items-center gap-2 font-bold uppercase rounded-full"
+        >
+          {showLinkCopied ? <CheckSquare size={18} /> : <LinkIcon size={18} />}
+          {showLinkCopied ? "Link Copied!" : "Kitchen Link"}
+        </button>
+
         <button 
           onClick={onPublish}
           className="bg-ink text-white px-5 py-3 border-2 border-ink shadow-hard hover:translate-y-1 hover:shadow-none transition-all active:bg-gray-800 flex items-center gap-2 font-bold uppercase rounded-full"
         >
           <Send size={18} /> Transmit Order
-        </button>
-        <button 
-          onClick={() => generatePlan(mode)} 
-          className="bg-brand-500 text-white p-4 border-2 border-ink shadow-hard hover:translate-y-1 hover:shadow-none transition-all active:bg-brand-600 rounded-lg"
-        >
-          <RefreshCw size={24} strokeWidth={3} />
         </button>
       </div>
     </div>
