@@ -120,9 +120,9 @@ export const analyzeHealthReport = async (file: File): Promise<string> => {
     try {
         const ai = new GoogleGenAI({ apiKey });
         const base64 = await fileToBase64(file);
-
+        
         const response = await ai.models.generateContent({
-            model: 'gemini-1.5-flash',
+            model: 'gemini-3-pro-preview',
             contents: {
                 parts: [
                     { inlineData: { mimeType: file.type, data: base64 } },
@@ -170,9 +170,10 @@ export const generateNewDishes = async (
     Return a list of dishes with macros, ingredients, step-by-step cooking instructions, and tags.`;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {
+        tools: [{ googleSearch: {} }], // Feature: Search Grounding
         responseMimeType: "application/json",
         responseSchema: {
           type: Type.ARRAY,
@@ -202,6 +203,32 @@ export const generateNewDishes = async (
 
 // Feature: Image Generation with Size Control
 const generateDishImage = async (dishName: string, description: string, size: ImageSize): Promise<string> => {
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) return `https://picsum.photos/400/400?random=${Math.floor(Math.random() * 1000)}`;
+
+    try {
+        const ai = new GoogleGenAI({ apiKey });
+        const response = await ai.models.generateContent({
+            model: 'gemini-3-pro-image-preview', // Feature: High quality image gen
+            contents: {
+                parts: [{ text: `A professional food photography shot of ${dishName}, ${description}. High resolution, appetizing, studio lighting, centered, 4k.` }]
+            },
+            config: {
+                imageConfig: {
+                    imageSize: size, // Feature: Size selection
+                    aspectRatio: "3:4" 
+                }
+            }
+        });
+
+        for (const part of response.candidates?.[0]?.content?.parts || []) {
+            if (part.inlineData) {
+                return `data:image/png;base64,${part.inlineData.data}`;
+            }
+        }
+    } catch (e) {
+        console.warn("Image gen failed", e);
+    }
     return `https://picsum.photos/400/400?random=${Math.floor(Math.random() * 1000)}`;
 };
 
@@ -225,15 +252,15 @@ export const analyzeAndGenerateDish = async (
         const extraInstruction = customInstruction ? `**Additional User Instruction:** "${customInstruction}"` : '';
 
         if (type === 'text') {
-            model = 'gemini-1.5-flash'; // Faster for text
-            contents = `Find a real recipe based on this description: "${input}".
+            model = 'gemini-3-flash-preview'; // Faster for text
+            contents = `Find a real recipe based on this description: "${input}". 
             ${constraints}
             ${extraInstruction}
-            Return JSON matching the schema.`;
+            Use Google Search to ensure it exists and fits the constraints. Return JSON.`;
         } else if (type === 'pantry' && typeof input === 'string') {
             // Reverse Search / Mystery Basket Mode
             // STRICT MODE: We instruct the model to prioritize ONLY the given ingredients.
-            model = 'gemini-1.5-flash';
+            model = 'gemini-3-pro-preview';
             contents = `Act as a creative chef participating in a 'Mystery Basket' challenge (Iron Chef Style). 
             The available ingredients (Pantry Stock) are: ${input}.
             
@@ -247,7 +274,6 @@ export const analyzeAndGenerateDish = async (
             Create a cohesive, high-quality dish using these restrictions.
             Return JSON matching the schema.`;
         } else if (type === 'image' && input instanceof File) {
-            model = 'gemini-1.5-flash';
             const base64 = await fileToBase64(input);
             contents = {
                 parts: [
@@ -256,7 +282,6 @@ export const analyzeAndGenerateDish = async (
                 ]
             };
         } else if (type === 'video' && input instanceof File) {
-            model = 'gemini-1.5-flash';
             const base64 = await fileToBase64(input);
             contents = {
                 parts: [
@@ -270,6 +295,11 @@ export const analyzeAndGenerateDish = async (
             responseMimeType: "application/json",
             responseSchema: DISH_SCHEMA
         };
+
+        // Only add search tool for text/pantry queries to ground them
+        if (type === 'text' || type === 'pantry') {
+            config.tools = [{ googleSearch: {} }];
+        }
 
         const response = await ai.models.generateContent({
             model: model,
