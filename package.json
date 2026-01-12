@@ -9,14 +9,15 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^19.2.3",
-    "react-dom": "^19.2.3",
     "@google/genai": "^1.34.0",
-    "lucide-react": "^0.561.0",
+    "firebase": "^12.7.0",
     "framer-motion": "^12.23.26",
-    "firebase": "^12.7.0"
+    "lucide-react": "^0.561.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
   },
   "devDependencies": {
+    "@esbuild/win32-x64": "^0.27.2",
     "@types/node": "^22.14.0",
     "@vitejs/plugin-react": "^5.0.0",
     "typescript": "~5.8.2",

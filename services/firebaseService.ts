@@ -1,18 +1,18 @@
 
 import { initializeApp } from "firebase/app";
-import { 
-    getAuth, 
-    GoogleAuthProvider, 
-    signInWithPopup, 
+import {
+    getAuth,
+    GoogleAuthProvider,
+    signInWithPopup,
     onAuthStateChanged as firebaseOnAuthStateChanged,
     User
 } from "firebase/auth";
-import { 
-    getFirestore, 
-    doc, 
-    setDoc, 
-    getDoc, 
-    onSnapshot 
+import {
+    getFirestore,
+    doc,
+    setDoc,
+    getDoc,
+    onSnapshot
 } from "firebase/firestore";
 import { AppState } from '../types';
 
@@ -21,26 +21,46 @@ import { AppState } from '../types';
  * Integrated from project: whattoeat-91e87
  */
 const firebaseConfig = {
-  apiKey: "AIzaSyDCjpuA6Fsi1oHQqdOpwgwqnfzFPBn6VD4",
-  authDomain: "whattoeat-91e87.firebaseapp.com",
-  projectId: "whattoeat-91e87",
-  storageBucket: "whattoeat-91e87.firebasestorage.app",
-  messagingSenderId: "123491617008",
-  appId: "1:123491617008:web:dbfdab6a470202cbea5a35",
-  measurementId: "G-CL7K4RB8TN"
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID,
+    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-const provider = new GoogleAuthProvider();
+// Initialize Firebase (Safe Guard)
+let app, auth: any, db: any, provider: any;
+try {
+    if (!firebaseConfig.apiKey) throw new Error("Missing API Key");
+    app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+    provider = new GoogleAuthProvider();
+} catch (e) {
+    console.warn("Firebase not initialized (Offline Mode):", e);
+    // Mock Auth for UI safety
+    auth = {
+        currentUser: null,
+        signOut: async () => { },
+        onAuthStateChanged: () => () => { } // returns unsubscribe
+    };
+    db = null;
+}
+
+export { auth, db };
 
 /**
  * IDENTITY & AUTH
  * Handles Google OAuth flow and session management.
  */
 export const signInWithGoogle = async () => {
+    if (!app) {
+        alert("Authentication unavailable: Missing Configuration");
+        throw new Error("Missing Config");
+    }
     try {
         const result = await signInWithPopup(auth, provider);
         const user = result.user;
@@ -55,9 +75,10 @@ export const signInWithGoogle = async () => {
     }
 };
 
-export const logout = () => auth.signOut();
+export const logout = () => auth?.signOut();
 
 export const onAuthStateChanged = (callback: (user: User | null) => void) => {
+    if (!app) return () => { };
     return firebaseOnAuthStateChanged(auth, callback);
 };
 
@@ -110,8 +131,8 @@ export const reconcileGuestToUser = (guestState: AppState, cloudState: AppState 
     return {
         profile: cloudState.profile || guestState.profile,
         approvedDishes: mergedApproved,
-        weeklyPlan: cloudState.weeklyPlan && cloudState.weeklyPlan.length > 0 
-            ? cloudState.weeklyPlan 
+        weeklyPlan: cloudState.weeklyPlan && cloudState.weeklyPlan.length > 0
+            ? cloudState.weeklyPlan
             : guestState.weeklyPlan,
         pantryStock: [...new Set([...(cloudState.pantryStock || []), ...(guestState.pantryStock || [])])]
     };

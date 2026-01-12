@@ -15,7 +15,7 @@ export enum HealthCondition {
   PCOS = 'PCOS'
 }
 
-export type Cuisine = string; 
+export type Cuisine = string;
 
 export type DietaryPreference = 'Vegetarian' | 'Non-Vegetarian' | 'Vegan' | 'Any';
 
@@ -29,8 +29,8 @@ export interface Macros {
 export interface Biometrics {
   age: number;
   gender: 'Male' | 'Female' | 'Other';
-  weight: number; 
-  height: number; 
+  weight: number;
+  height: number;
   activityLevel: 'Sedentary' | 'Light' | 'Moderate' | 'Active';
   goal: 'Lose' | 'Maintain' | 'Gain';
 }
@@ -42,14 +42,16 @@ export interface UserProfile {
   allergenNotes: string;
   conditions: HealthCondition[];
   conditionNotes: string;
-  healthReportSummary?: string; 
+  healthReportSummary?: string;
   cuisines: Cuisine[];
   cuisineNotes: string;
   dietaryPreference: DietaryPreference;
-  customNotes: string; 
-  biometrics?: Biometrics; 
+  customNotes: string;
+  biometrics?: Biometrics;
   dailyTargets: Macros;
   isOnboarded: boolean;
+  credits: number; // Gamification: Currency
+  unlockedDishIds: string[]; // Gamification: Ownership
 }
 
 export interface Ingredient {
@@ -61,7 +63,7 @@ export interface Ingredient {
 export interface Dish {
   id: string;
   name: string;
-  localName: string; 
+  localName: string;
   description: string;
   primaryIngredient: string;
   cuisine: string;
@@ -69,35 +71,36 @@ export interface Dish {
   image: string;
   macros: Macros;
   ingredients: Ingredient[];
-  instructions: string[]; 
-  tags: string[]; 
-  chefAdvice?: string; 
+  instructions: string[];
+  tags: string[];
+  healthTags?: string[]; // New: For Diabetes, PCOS, etc.
+  chefAdvice?: string;
   allergens: Allergen[];
-  lastEaten?: number; 
+  lastEaten?: number;
   isStaple?: boolean;
-  userNotes?: string; 
-  servings?: number; 
+  userNotes?: string;
+  servings?: number;
 }
 
 export enum SwipeDirection {
-  Left = 'Left',   
-  Right = 'Right', 
-  Up = 'Up'        
+  Left = 'Left',
+  Right = 'Right',
+  Up = 'Up'
 }
 
 export interface DayPlan {
   day: string;
   lunch: Dish | null;
   dinner: Dish | null;
-  isLocked?: boolean; 
+  isLocked?: boolean;
 }
 
 export enum AppView {
   Onboarding = 'Onboarding',
   Swipe = 'Swipe',
   Planner = 'Planner',
-  Shopping = 'Shopping', 
-  Pantry = 'Pantry',     
+  Shopping = 'Shopping',
+  Pantry = 'Pantry',
   Profile = 'Profile'
 }
 
@@ -106,8 +109,8 @@ export type VibeMode = 'Strict' | 'Comfort' | 'Explorer';
 export type ImageSize = '1K' | '2K' | '4K';
 
 export interface AppState {
-    profile: UserProfile | null;
-    approvedDishes: Dish[];
-    weeklyPlan: DayPlan[];
-    pantryStock: string[];
+  profile: UserProfile | null;
+  approvedDishes: Dish[];
+  weeklyPlan: DayPlan[];
+  pantryStock: string[];
 }

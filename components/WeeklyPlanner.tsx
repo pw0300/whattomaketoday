@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Dish, DayPlan, VibeMode, UserProfile } from '../types';
 import { DAYS_OF_WEEK } from '../constants';
-import { RefreshCw, Zap, Coffee, RotateCw, Send, ArrowDownCircle, Eraser, Lock, Unlock, Sparkles, Link as LinkIcon, Copy, CheckSquare } from 'lucide-react';
+import { generateCookAudio } from '../services/geminiService';
+import { RefreshCw, Zap, Coffee, RotateCw, Send, ArrowDownCircle, Eraser, Lock, Unlock, Sparkles, Link as LinkIcon, CheckSquare, MessageCircle, Mic, Play, Loader2 } from 'lucide-react';
 
 interface Props {
   approvedDishes: Dish[];
@@ -16,8 +17,12 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
   const [mode, setMode] = useState<VibeMode>('Comfort');
   const [weekPlan, setWeekPlan] = useState<DayPlan[]>([]);
   const [regenerating, setRegenerating] = useState(false);
-  const [swappingSlot, setSwappingSlot] = useState<{dayIndex: number, type: 'lunch' | 'dinner'} | null>(null);
+  const [swappingSlot, setSwappingSlot] = useState<{ dayIndex: number, type: 'lunch' | 'dinner' } | null>(null);
   const [showLinkCopied, setShowLinkCopied] = useState(false);
+
+  // Cook Bridge State
+  const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
 
   // Load from LocalStorage on mount
   useEffect(() => {
@@ -28,7 +33,7 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
         if (Array.isArray(parsed) && parsed.length > 0) {
           setWeekPlan(parsed);
           onPlanUpdate(parsed);
-          return; 
+          return;
         }
       } catch (e) {
         console.error("Failed to parse saved plan", e);
@@ -49,36 +54,36 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
   const getDishFromPool = (pool: Dish[], typeFilter?: 'Lunch' | 'Dinner', excludeIds: string[] = [], recentIds: string[] = [], prioritizePantry = false) => {
     let candidates = pool.filter(d => !excludeIds.includes(d.id));
     if (typeFilter) {
-       if (typeFilter === 'Lunch') {
-           candidates = candidates.filter(d => d.type === 'Lunch' || d.type === 'Snack' || d.type === 'Breakfast');
-       } else if (typeFilter === 'Dinner') {
-           candidates = candidates.filter(d => d.type === 'Dinner');
-       }
+      if (typeFilter === 'Lunch') {
+        candidates = candidates.filter(d => d.type === 'Lunch' || d.type === 'Snack' || d.type === 'Breakfast');
+      } else if (typeFilter === 'Dinner') {
+        candidates = candidates.filter(d => d.type === 'Dinner');
+      }
     }
     if (candidates.length === 0) {
-        candidates = pool.filter(d => !excludeIds.includes(d.id));
-        if (candidates.length === 0) return null;
+      candidates = pool.filter(d => !excludeIds.includes(d.id));
+      if (candidates.length === 0) return null;
     }
     const freshCandidates = candidates.filter(d => !recentIds.includes(d.id));
     let finalPool = freshCandidates.length > 0 ? freshCandidates : candidates;
 
     // --- PANTRY PRIORITIZATION LOGIC ---
     if (prioritizePantry && pantryStock.length > 0) {
-        const pantryPool = finalPool.filter(d => {
-            // Very basic fuzzy check: Does the dish use at least one ingredient we have?
-            return d.ingredients.some(ing => 
-                pantryStock.some(s => s.toLowerCase().includes(ing.name.toLowerCase()) || ing.name.toLowerCase().includes(s.toLowerCase()))
-            );
-        });
-        if (pantryPool.length > 0) {
-            finalPool = pantryPool; // Narrow down to pantry options
-        }
+      const pantryPool = finalPool.filter(d => {
+        // Very basic fuzzy check: Does the dish use at least one ingredient we have?
+        return d.ingredients.some(ing =>
+          pantryStock.some(s => s.toLowerCase().includes(ing.name.toLowerCase()) || ing.name.toLowerCase().includes(s.toLowerCase()))
+        );
+      });
+      if (pantryPool.length > 0) {
+        finalPool = pantryPool; // Narrow down to pantry options
+      }
     }
 
     const weightedPool: Dish[] = [];
     finalPool.forEach(d => {
-        weightedPool.push(d);
-        if (d.isStaple) weightedPool.push(d); 
+      weightedPool.push(d);
+      if (d.isStaple) weightedPool.push(d);
     });
     return weightedPool[Math.floor(Math.random() * weightedPool.length)];
   };
@@ -90,30 +95,30 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
       let pool = filterPoolByMode(targetMode);
       if (pool.length < 5) onRequestMoreDishes(targetMode);
 
-      const recentHistory: string[] = []; 
-      
-      const newPlan: DayPlan[] = weekPlan.length > 0 
-        ? weekPlan.map((existingDay, idx) => {
-            if (existingDay.isLocked) {
-                if (existingDay.lunch) recentHistory.push(existingDay.lunch.id);
-                if (existingDay.dinner) recentHistory.push(existingDay.dinner.id);
-                return existingDay;
-            }
+      const recentHistory: string[] = [];
 
-            const lunch = getDishFromPool(pool, 'Lunch', [], recentHistory);
-            if (lunch) {
-                recentHistory.push(lunch.id);
-                if (recentHistory.length > 3) recentHistory.shift(); 
-            }
-            const dinner = getDishFromPool(pool, 'Dinner', lunch ? [lunch.id] : [], recentHistory);
-            if (dinner) {
-                recentHistory.push(dinner.id);
-                if (recentHistory.length > 3) recentHistory.shift();
-            }
-            return { day: DAYS_OF_WEEK[idx], lunch, dinner, isLocked: false };
+      const newPlan: DayPlan[] = weekPlan.length > 0
+        ? weekPlan.map((existingDay, idx) => {
+          if (existingDay.isLocked) {
+            if (existingDay.lunch) recentHistory.push(existingDay.lunch.id);
+            if (existingDay.dinner) recentHistory.push(existingDay.dinner.id);
+            return existingDay;
+          }
+
+          const lunch = getDishFromPool(pool, 'Lunch', [], recentHistory);
+          if (lunch) {
+            recentHistory.push(lunch.id);
+            if (recentHistory.length > 3) recentHistory.shift();
+          }
+          const dinner = getDishFromPool(pool, 'Dinner', lunch ? [lunch.id] : [], recentHistory);
+          if (dinner) {
+            recentHistory.push(dinner.id);
+            if (recentHistory.length > 3) recentHistory.shift();
+          }
+          return { day: DAYS_OF_WEEK[idx], lunch, dinner, isLocked: false };
         })
         : DAYS_OF_WEEK.map(day => {
-            return { day, lunch: null, dinner: null, isLocked: false }; 
+          return { day, lunch: null, dinner: null, isLocked: false };
         });
 
       setWeekPlan(newPlan);
@@ -124,46 +129,46 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
 
   // --- NEW FEATURE: MAGIC FILL (Autopilot) ---
   const handleMagicFill = () => {
-      setRegenerating(true);
-      setTimeout(() => {
-          let pool = filterPoolByMode(mode);
-          if (pool.length < 3) {
-             alert("Not enough approved dishes to auto-fill. Swipe right on more dishes!");
-             setRegenerating(false);
-             return;
-          }
+    setRegenerating(true);
+    setTimeout(() => {
+      let pool = filterPoolByMode(mode);
+      if (pool.length < 3) {
+        alert("Not enough approved dishes to auto-fill. Swipe right on more dishes!");
+        setRegenerating(false);
+        return;
+      }
 
-          const todayIdx = new Date().getDay() - 1; // 0=Mon
-          const safeTodayIdx = todayIdx < 0 ? 0 : todayIdx;
-          
-          const newPlan = [...weekPlan];
-          const recentHistory: string[] = [];
+      const todayIdx = new Date().getDay() - 1; // 0=Mon
+      const safeTodayIdx = todayIdx < 0 ? 0 : todayIdx;
 
-          // Only fill Today + Next 2 days
-          for (let i = 0; i < 7; i++) {
-              if (i >= safeTodayIdx && i <= safeTodayIdx + 2) {
-                  if (newPlan[i].isLocked) continue;
+      const newPlan = [...weekPlan];
+      const recentHistory: string[] = [];
 
-                  // Prioritize Pantry for Magic Fill
-                  const lunch = getDishFromPool(pool, 'Lunch', [], recentHistory, true);
-                  if (lunch) recentHistory.push(lunch.id);
-                  
-                  const dinner = getDishFromPool(pool, 'Dinner', lunch ? [lunch.id] : [], recentHistory, true);
-                  if (dinner) recentHistory.push(dinner.id);
+      // Only fill Today + Next 2 days
+      for (let i = 0; i < 7; i++) {
+        if (i >= safeTodayIdx && i <= safeTodayIdx + 2) {
+          if (newPlan[i].isLocked) continue;
 
-                  newPlan[i] = { ...newPlan[i], lunch, dinner };
-              }
-          }
-          setWeekPlan(newPlan);
-          onPlanUpdate(newPlan);
-          setRegenerating(false);
-      }, 600);
+          // Prioritize Pantry for Magic Fill
+          const lunch = getDishFromPool(pool, 'Lunch', [], recentHistory, true);
+          if (lunch) recentHistory.push(lunch.id);
+
+          const dinner = getDishFromPool(pool, 'Dinner', lunch ? [lunch.id] : [], recentHistory, true);
+          if (dinner) recentHistory.push(dinner.id);
+
+          newPlan[i] = { ...newPlan[i], lunch, dinner };
+        }
+      }
+      setWeekPlan(newPlan);
+      onPlanUpdate(newPlan);
+      setRegenerating(false);
+    }, 600);
   };
 
   const filterPoolByMode = (targetMode: VibeMode) => {
     let pool = [...approvedDishes];
     if (targetMode === 'Strict') {
-      pool = pool.filter(d => 
+      pool = pool.filter(d =>
         d.macros.calories <= (userProfile.dailyTargets.calories / 2)
       );
     } else if (targetMode === 'Comfort') {
@@ -188,7 +193,7 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
 
       const targetType = type === 'lunch' ? 'Lunch' : 'Dinner';
       const newDish = getDishFromPool(pool, targetType, excludeIds) || getDishFromPool(pool, undefined, excludeIds);
-      
+
       const newPlan = [...weekPlan];
       newPlan[dayIndex] = { ...newPlan[dayIndex], [type]: newDish };
 
@@ -199,36 +204,36 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
   };
 
   const handleLeftovers = (dayIndex: number) => {
-      if (dayIndex === 0 || weekPlan[dayIndex].isLocked) return; 
-      const prevDinner = weekPlan[dayIndex - 1].dinner;
-      if (!prevDinner) return;
+    if (dayIndex === 0 || weekPlan[dayIndex].isLocked) return;
+    const prevDinner = weekPlan[dayIndex - 1].dinner;
+    if (!prevDinner) return;
 
-      const newPlan = [...weekPlan];
-      newPlan[dayIndex] = {
-          ...newPlan[dayIndex],
-          lunch: {
-              ...prevDinner,
-              name: `${prevDinner.name} (Leftovers)`,
-              localName: "Reheated"
-          }
-      };
-      setWeekPlan(newPlan);
-      onPlanUpdate(newPlan);
+    const newPlan = [...weekPlan];
+    newPlan[dayIndex] = {
+      ...newPlan[dayIndex],
+      lunch: {
+        ...prevDinner,
+        name: `${prevDinner.name} (Leftovers)`,
+        localName: "Reheated"
+      }
+    };
+    setWeekPlan(newPlan);
+    onPlanUpdate(newPlan);
   };
 
   const handleClearWeek = () => {
     if (confirm("Reset the entire week? This unlocks all days and clears meals.")) {
-        const blankPlan = DAYS_OF_WEEK.map(day => ({ day, lunch: null, dinner: null, isLocked: false }));
-        setWeekPlan(blankPlan);
-        onPlanUpdate(blankPlan);
+      const blankPlan = DAYS_OF_WEEK.map(day => ({ day, lunch: null, dinner: null, isLocked: false }));
+      setWeekPlan(blankPlan);
+      onPlanUpdate(blankPlan);
     }
   };
 
   const toggleLock = (index: number) => {
-      const newPlan = [...weekPlan];
-      newPlan[index] = { ...newPlan[index], isLocked: !newPlan[index].isLocked };
-      setWeekPlan(newPlan);
-      onPlanUpdate(newPlan);
+    const newPlan = [...weekPlan];
+    newPlan[index] = { ...newPlan[index], isLocked: !newPlan[index].isLocked };
+    setWeekPlan(newPlan);
+    onPlanUpdate(newPlan);
   };
 
   const handleModeChange = (newMode: VibeMode) => {
@@ -239,15 +244,71 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
 
   // --- NEW FEATURE: SHARE LINK ---
   const handleCopyLink = () => {
-      // Serialize plan to base64 with robust unicode handling
-      const jsonString = JSON.stringify(weekPlan);
-      const data = btoa(encodeURIComponent(jsonString));
-      const url = `${window.location.origin}${window.location.pathname}?view=cook&data=${encodeURIComponent(data)}`;
-      
-      navigator.clipboard.writeText(url).then(() => {
-          setShowLinkCopied(true);
-          setTimeout(() => setShowLinkCopied(false), 2000);
-      });
+    // Serialize plan to base64 with robust unicode handling
+    const jsonString = JSON.stringify(weekPlan);
+    const data = btoa(encodeURIComponent(jsonString));
+    const url = `${window.location.origin}${window.location.pathname}?view=cook&data=${encodeURIComponent(data)}`;
+
+    navigator.clipboard.writeText(url).then(() => {
+      setShowLinkCopied(true);
+      setTimeout(() => setShowLinkCopied(false), 2000);
+    });
+  };
+
+  // --- COOK BRIDGE (WhatsApp + Audio) ---
+  const handleWhatsAppShare = () => {
+    let message = `👨‍🍳 *Kitchen Orders (Run of Show)*\n\n`;
+    weekPlan.forEach(d => {
+      if (!d.lunch && !d.dinner) return;
+      message += `*${d.day}*\n`;
+      if (d.lunch) {
+        message += `☀️ Lunch: ${d.lunch.name} (${d.lunch.localName})\n`;
+        message += `   _Waitlist: ${d.lunch.primaryIngredient}_\n`;
+      }
+      if (d.dinner) {
+        message += `🌙 Dinner: ${d.dinner.name} (${d.dinner.localName})\n`;
+        message += `   _Waitlist: ${d.dinner.primaryIngredient}_\n`;
+      }
+      if (d.lunch?.userNotes || d.dinner?.userNotes) {
+        message += `   📝 Note: ${d.lunch?.userNotes || ''} ${d.dinner?.userNotes || ''}\n`;
+      }
+      message += `\n`;
+    });
+
+    message += `\n🎵 *Instructions (Hinglish)*:\n`;
+    message += `(Audio sent separately via App. Read below)\n`;
+    message += `Please ensure low oil usage. Masala kam rakhna.`;
+
+    // In a real app, we would await generateCookAudio text transcript here, 
+    // but for now we provide the structured menu which IS the script.
+
+    const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank');
+  };
+
+  const handleAudioBriefing = async () => {
+    if (audioUrl) {
+      // Toggle play if already exists? For now just replay.
+      const audio = new Audio(audioUrl);
+      audio.play();
+      return;
+    }
+
+    setIsGeneratingAudio(true);
+    try {
+      const base64Audio = await generateCookAudio(weekPlan);
+      if (base64Audio) {
+        const blob = await (await fetch(`data:audio/wav;base64,${base64Audio}`)).blob();
+        const url = URL.createObjectURL(blob);
+        setAudioUrl(url);
+        const audio = new Audio(url);
+        audio.play();
+      } else {
+        alert("Could not generate audio instructions. Try again.");
+      }
+    } finally {
+      setIsGeneratingAudio(false);
+    }
   };
 
   return (
@@ -255,31 +316,31 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
       {/* Header */}
       <div className="p-4 bg-paper border-b-2 border-ink sticky top-0 z-20">
         <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-black uppercase text-ink">Run of Show</h2>
-            <div className="flex items-center gap-2">
-                 <button 
-                    onClick={handleClearWeek}
-                    className="text-[10px] font-bold uppercase text-red-500 hover:text-red-700 flex items-center gap-1 border border-red-200 bg-red-50 px-2 py-1"
-                >
-                    <Eraser size={12} /> Clear Board
-                </button>
-            </div>
+          <h2 className="text-2xl font-black uppercase text-ink">Run of Show</h2>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleClearWeek}
+              className="text-[10px] font-bold uppercase text-red-500 hover:text-red-700 flex items-center gap-1 border border-red-200 bg-red-50 px-2 py-1"
+            >
+              <Eraser size={12} /> Clear Board
+            </button>
+          </div>
         </div>
-        
+
         {/* Magic Fill Banner */}
-        <button 
-            onClick={handleMagicFill}
-            disabled={regenerating}
-            className="w-full mb-4 bg-brand-100 border-2 border-brand-500 text-brand-900 p-3 flex items-center justify-between shadow-sm active:translate-y-1 transition-all"
+        <button
+          onClick={handleMagicFill}
+          disabled={regenerating}
+          className="w-full mb-4 bg-brand-100 border-2 border-brand-500 text-brand-900 p-3 flex items-center justify-between shadow-sm active:translate-y-1 transition-all"
         >
-            <div className="flex items-center gap-2">
-                <Sparkles size={18} className={regenerating ? 'animate-spin' : ''} />
-                <div className="text-left">
-                    <span className="block font-black uppercase text-xs">Kitchen Autopilot</span>
-                    <span className="block text-[10px] opacity-75">Auto-Fill next 3 days based on pantry</span>
-                </div>
+          <div className="flex items-center gap-2">
+            <Sparkles size={18} className={regenerating ? 'animate-spin' : ''} />
+            <div className="text-left">
+              <span className="block font-black uppercase text-xs">Kitchen Autopilot</span>
+              <span className="block text-[10px] opacity-75">Auto-Fill next 3 days based on pantry</span>
             </div>
-            <div className="bg-brand-500 text-white px-2 py-1 text-[10px] font-bold uppercase">Run</div>
+          </div>
+          <div className="bg-brand-500 text-white px-2 py-1 text-[10px] font-bold uppercase">Run</div>
         </button>
 
         <div className="flex gap-2">
@@ -287,9 +348,8 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
             <button
               key={m}
               onClick={() => handleModeChange(m)}
-              className={`flex-1 py-2 font-mono text-xs font-bold uppercase border-2 transition-all ${
-                mode === m ? 'bg-ink text-white border-ink shadow-hard-sm' : 'bg-white text-gray-500 border-gray-300'
-              }`}
+              className={`flex-1 py-2 font-mono text-xs font-bold uppercase border-2 transition-all ${mode === m ? 'bg-ink text-white border-ink shadow-hard-sm' : 'bg-white text-gray-500 border-gray-300'
+                }`}
             >
               {m}
             </button>
@@ -311,23 +371,23 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
               <div className={`bg-ink text-white px-3 py-1 flex justify-between items-center ${dayPlan.isLocked ? 'bg-brand-600' : 'bg-ink'}`}>
                 <h3 className="font-black uppercase tracking-wider text-sm">{dayPlan.day}</h3>
                 <div className="flex items-center gap-3">
-                    <span className="font-mono text-[10px] opacity-75">DAY 0{idx + 1}</span>
-                    <button 
-                        onClick={() => toggleLock(idx)}
-                        className="text-white hover:text-brand-200 transition-colors"
-                    >
-                        {dayPlan.isLocked ? <Lock size={14} /> : <Unlock size={14} className="opacity-50" />}
-                    </button>
+                  <span className="font-mono text-[10px] opacity-75">DAY 0{idx + 1}</span>
+                  <button
+                    onClick={() => toggleLock(idx)}
+                    className="text-white hover:text-brand-200 transition-colors"
+                  >
+                    {dayPlan.isLocked ? <Lock size={14} /> : <Unlock size={14} className="opacity-50" />}
+                  </button>
                 </div>
               </div>
-              
+
               <div className={`p-0 relative ${dayPlan.isLocked ? 'bg-gray-50' : ''}`}>
-                 {/* Locked Overlay Hint */}
-                 {dayPlan.isLocked && (
-                     <div className="absolute inset-0 bg-white/10 z-10 pointer-events-none flex items-center justify-center">
-                         <Lock size={64} className="text-black/5" />
-                     </div>
-                 )}
+                {/* Locked Overlay Hint */}
+                {dayPlan.isLocked && (
+                  <div className="absolute inset-0 bg-white/10 z-10 pointer-events-none flex items-center justify-center">
+                    <Lock size={64} className="text-black/5" />
+                  </div>
+                )}
 
                 {/* Lunch Slot */}
                 <div className="flex group border-b border-ink border-dashed relative">
@@ -336,61 +396,61 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
                   </div>
                   <div className="flex-1 p-3 min-w-0">
                     <div className="flex justify-between items-start">
-                        <div>
-                             <p className="font-mono text-[10px] text-gray-400 uppercase mb-1">AM SERVICE</p>
-                             <p className="font-bold text-sm text-ink truncate pr-2 leading-tight">
-                                {dayPlan.lunch?.name || "86'd (OUT)"}
-                             </p>
-                             <p className="font-serif italic text-xs text-gray-500">{dayPlan.lunch?.localName}</p>
-                        </div>
-                        <div className="flex gap-2 relative z-20">
-                             {/* Leftover Button */}
-                             {idx > 0 && weekPlan[idx-1].dinner && !dayPlan.lunch && !dayPlan.isLocked && (
-                                <button
-                                    onClick={() => handleLeftovers(idx)}
-                                    className="p-2 hover:bg-orange-100 text-orange-400 hover:text-orange-600 rounded-full transition"
-                                    title="Eat Leftovers"
-                                >
-                                    <ArrowDownCircle size={14} />
-                                </button>
-                             )}
-                             {!dayPlan.isLocked && (
-                                <button 
-                                    onClick={() => handleSwapSlot(idx, 'lunch')}
-                                    className="p-2 hover:bg-gray-100 rounded-full transition text-gray-400 hover:text-ink"
-                                    disabled={!!swappingSlot}
-                                >
-                                    <RotateCw size={14} className={swappingSlot?.dayIndex === idx && swappingSlot?.type === 'lunch' ? 'animate-spin text-brand-600' : ''} />
-                                </button>
-                             )}
-                        </div>
+                      <div>
+                        <p className="font-mono text-[10px] text-gray-400 uppercase mb-1">AM SERVICE</p>
+                        <p className="font-bold text-sm text-ink truncate pr-2 leading-tight">
+                          {dayPlan.lunch?.name || "86'd (OUT)"}
+                        </p>
+                        <p className="font-serif italic text-xs text-gray-500">{dayPlan.lunch?.localName}</p>
+                      </div>
+                      <div className="flex gap-2 relative z-20">
+                        {/* Leftover Button */}
+                        {idx > 0 && weekPlan[idx - 1].dinner && !dayPlan.lunch && !dayPlan.isLocked && (
+                          <button
+                            onClick={() => handleLeftovers(idx)}
+                            className="p-2 hover:bg-orange-100 text-orange-400 hover:text-orange-600 rounded-full transition"
+                            title="Eat Leftovers"
+                          >
+                            <ArrowDownCircle size={14} />
+                          </button>
+                        )}
+                        {!dayPlan.isLocked && (
+                          <button
+                            onClick={() => handleSwapSlot(idx, 'lunch')}
+                            className="p-2 hover:bg-gray-100 rounded-full transition text-gray-400 hover:text-ink"
+                            disabled={!!swappingSlot}
+                          >
+                            <RotateCw size={14} className={swappingSlot?.dayIndex === idx && swappingSlot?.type === 'lunch' ? 'animate-spin text-brand-600' : ''} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Dinner Slot */}
                 <div className="flex group">
-                   <div className="w-12 bg-gray-50 flex items-center justify-center border-r border-ink border-dashed">
+                  <div className="w-12 bg-gray-50 flex items-center justify-center border-r border-ink border-dashed">
                     <Coffee size={18} className="text-gray-400" />
                   </div>
                   <div className="flex-1 p-3 min-w-0">
                     <div className="flex justify-between items-start">
-                        <div>
-                            <p className="font-mono text-[10px] text-gray-400 uppercase mb-1">PM SERVICE</p>
-                            <p className="font-bold text-sm text-ink truncate pr-2 leading-tight">
-                            {dayPlan.dinner?.name || 'STAFF MEAL / LEFTOVERS'}
-                            </p>
-                            <p className="font-serif italic text-xs text-gray-500">{dayPlan.dinner?.localName}</p>
-                        </div>
-                        {!dayPlan.isLocked && (
-                            <button 
-                                onClick={() => handleSwapSlot(idx, 'dinner')}
-                                className="p-2 hover:bg-gray-100 rounded-full transition text-gray-400 hover:text-ink"
-                                disabled={!!swappingSlot}
-                            >
-                                <RotateCw size={14} className={swappingSlot?.dayIndex === idx && swappingSlot?.type === 'dinner' ? 'animate-spin text-brand-600' : ''} />
-                            </button>
-                        )}
+                      <div>
+                        <p className="font-mono text-[10px] text-gray-400 uppercase mb-1">PM SERVICE</p>
+                        <p className="font-bold text-sm text-ink truncate pr-2 leading-tight">
+                          {dayPlan.dinner?.name || 'STAFF MEAL / LEFTOVERS'}
+                        </p>
+                        <p className="font-serif italic text-xs text-gray-500">{dayPlan.dinner?.localName}</p>
+                      </div>
+                      {!dayPlan.isLocked && (
+                        <button
+                          onClick={() => handleSwapSlot(idx, 'dinner')}
+                          className="p-2 hover:bg-gray-100 rounded-full transition text-gray-400 hover:text-ink"
+                          disabled={!!swappingSlot}
+                        >
+                          <RotateCw size={14} className={swappingSlot?.dayIndex === idx && swappingSlot?.type === 'dinner' ? 'animate-spin text-brand-600' : ''} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -399,11 +459,29 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
           ))
         )}
       </div>
-      
+
       {/* FABs */}
       <div className="absolute bottom-24 right-6 flex flex-col gap-4 items-end">
+        {/* COOK BRIDGE */}
+        <div className="flex gap-2">
+          <button
+            onClick={handleAudioBriefing}
+            className={`bg-white text-ink w-12 h-12 flex items-center justify-center border-2 border-ink shadow-hard hover:translate-y-1 hover:shadow-none transition-all rounded-full ${isGeneratingAudio ? 'animate-pulse' : ''}`}
+            title="Play Audio Instructions"
+          >
+            {isGeneratingAudio ? <Loader2 size={24} className="animate-spin" /> : (audioUrl ? <Play size={24} className="fill-ink" /> : <Mic size={24} />)}
+          </button>
+          <button
+            onClick={handleWhatsAppShare}
+            className="bg-green-500 text-white w-12 h-12 flex items-center justify-center border-2 border-ink shadow-hard hover:translate-y-1 hover:shadow-none transition-all rounded-full"
+            title="Send to WhatsApp"
+          >
+            <MessageCircle size={24} />
+          </button>
+        </div>
+
         {/* SHARE LINK BUTTON (Matches App.tsx behavior now) */}
-        <button 
+        <button
           onClick={handleCopyLink}
           className="bg-white text-ink px-5 py-3 border-2 border-ink shadow-hard hover:translate-y-1 hover:shadow-none transition-all active:bg-gray-100 flex items-center gap-2 font-bold uppercase rounded-full"
         >
@@ -411,7 +489,7 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
           {showLinkCopied ? "Link Copied!" : "Kitchen Link"}
         </button>
 
-        <button 
+        <button
           onClick={onPublish}
           className="bg-ink text-white px-5 py-3 border-2 border-ink shadow-hard hover:translate-y-1 hover:shadow-none transition-all active:bg-gray-800 flex items-center gap-2 font-bold uppercase rounded-full"
         >
