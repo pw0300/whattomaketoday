@@ -50,8 +50,7 @@ export interface UserProfile {
   biometrics?: Biometrics;
   dailyTargets: Macros;
   isOnboarded: boolean;
-  credits: number; // Gamification: Currency
-  unlockedDishIds: string[]; // Gamification: Ownership
+  likedDishes: string[]; // For seeding generation
 }
 
 export interface Ingredient {
@@ -96,6 +95,7 @@ export interface DayPlan {
 }
 
 export enum AppView {
+  Intro = 'Intro',
   Onboarding = 'Onboarding',
   Swipe = 'Swipe',
   Planner = 'Planner',

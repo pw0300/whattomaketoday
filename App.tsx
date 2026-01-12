@@ -11,8 +11,8 @@ import {
   onAuthStateChanged,
   logout
 } from './services/firebaseService';
-import Onboarding from './components/Onboarding';
 import IntroWalkthrough from './components/IntroWalkthrough';
+import Onboarding from './components/Onboarding';
 import SwipeDeck from './components/SwipeDeck';
 import WeeklyPlanner from './components/WeeklyPlanner';
 import GroceryList from './components/GroceryList';
@@ -33,8 +33,6 @@ const App: React.FC = () => {
   // App State
   const [view, setView] = useState<AppView>(AppView.Onboarding);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [checkingIntro, setCheckingIntro] = useState(true);
-  const [showIntro, setShowIntro] = useState(false);
 
   // Core Data
   const [availableDishes, setAvailableDishes] = useState<Dish[]>(INITIAL_DISHES);
@@ -63,33 +61,37 @@ const App: React.FC = () => {
           setApprovedDishes(cloudData.approvedDishes);
           setWeeklyPlan(cloudData.weeklyPlan);
           setPantryStock(cloudData.pantryStock);
+          // If profile exists from cloud, go to Swipe
+          setView(AppView.Swipe);
         }
       }
     });
 
     const init = async () => {
       try {
-        const hasSeenIntro = localStorage.getItem(STORAGE_KEYS.INTRO);
-        if (!hasSeenIntro) setShowIntro(true);
-
         const savedProfile = localStorage.getItem(STORAGE_KEYS.PROFILE);
+        const introSeen = localStorage.getItem('intro_seen');
+
         if (savedProfile) {
-          const parsed = JSON.parse(savedProfile);
-          // MIGRATION: Give legacy users 999 credits (Unlimited Mode)
-          if (parsed.credits === undefined || parsed.credits < 999) {
-            parsed.credits = 999;
-            parsed.unlockedDishIds = parsed.unlockedDishIds || [];
+          let parsed = JSON.parse(savedProfile);
+          // MIGRATION: Remove legacy credits
+          if (parsed.credits) {
+            const { credits, unlockedDishIds, ...clean } = parsed;
+            parsed = clean;
             localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(parsed));
           }
           setUserProfile(parsed);
+          setView(AppView.Swipe);
+        } else if (!introSeen) {
+          setView(AppView.Intro);
+        } else {
+          setView(AppView.Onboarding);
         }
 
         const savedPantry = localStorage.getItem(STORAGE_KEYS.PANTRY);
         if (savedPantry) setPantryStock(JSON.parse(savedPantry));
-
-        if (hasSeenIntro && savedProfile) setView(AppView.Swipe);
-      } finally {
-        setCheckingIntro(false);
+      } catch (e) {
+        console.error("Init Error", e);
       }
     };
     init();
@@ -153,7 +155,9 @@ const App: React.FC = () => {
     }
 
     const unswiped = availableDishes.filter(d => !approvedDishes.some(ad => ad.id === d.id)).length;
-    if (unswiped < 5 && !fetchingMore && userProfile) {
+
+    // Aggressive Prefetching: Trigger when < 4 cards left
+    if (unswiped < 4 && !fetchingMore && userProfile) {
       setFetchingMore(true);
       generateNewDishes(6, userProfile, 'Explorer')
         .then(newDishes => {
@@ -167,24 +171,34 @@ const App: React.FC = () => {
     }
   };
 
+  const handleIntroComplete = () => {
+    localStorage.setItem('intro_seen', 'true');
+    setView(AppView.Onboarding);
+  };
+
   const handleOnboardingComplete = async (profile: UserProfile) => {
-    // GAMIFICATION: Start with 999 Credits (Simulated Unlimited)
-    const richProfile = { ...profile, credits: 999, unlockedDishIds: [] };
-    setUserProfile(richProfile);
-    localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(richProfile));
+    setUserProfile(profile);
+    localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(profile));
+
     setIsSeeding(true);
-    const dishes = await generateNewDishes(8, richProfile);
-    setAvailableDishes(dishes);
-    setIsSeeding(false);
-    setView(AppView.Swipe);
+    // Initial Generation with Seeds
+    try {
+      const dishes = await generateNewDishes(6, profile, 'Explorer');
+      setAvailableDishes(dishes);
+    } catch (e) {
+      console.error("Initial Gen Error", e);
+    } finally {
+      setIsSeeding(false);
+      setView(AppView.Swipe);
+    }
   };
 
   const isCookView = useMemo(() => new URLSearchParams(window.location.search).get('view') === 'cook', []);
   if (isCookView) return <CookView />;
 
-  if (checkingIntro) return null;
-  if (showIntro) return <IntroWalkthrough onComplete={() => { setShowIntro(false); localStorage.setItem(STORAGE_KEYS.INTRO, 'true'); if (userProfile) setView(AppView.Swipe); }} />;
-  if (isSeeding) return <div className="h-screen flex flex-col items-center justify-center bg-paper font-mono text-xs"><Loader2 className="animate-spin mb-4" />COMPILING HOUSEHOLD LOGIC...</div>;
+  if (view === AppView.Intro) return <IntroWalkthrough onComplete={handleIntroComplete} />;
+
+  if (isSeeding) return <div className="h-screen flex flex-col items-center justify-center bg-paper font-mono text-xs text-ink"><Loader2 className="animate-spin mb-4" />CURATING MENU...</div>;
   if (!userProfile || view === AppView.Onboarding) return <Onboarding onComplete={handleOnboardingComplete} />;
 
   return (
@@ -256,8 +270,6 @@ const App: React.FC = () => {
         <DishModal
           dish={modifyingDish}
           onClose={() => setModifyingDish(null)}
-          userCredits={userProfile?.credits || 0}
-          isUnlocked={userProfile?.unlockedDishIds?.includes(modifyingDish.id) || false}
           onSave={(id, notes, servings) => {
             setApprovedDishes(prev => prev.map(d => d.id === id ? { ...d, userNotes: notes, servings } : d));
             setModifyingDish(null);
@@ -267,20 +279,7 @@ const App: React.FC = () => {
             setAvailableDishes(prev => prev.map(d => d.id === updatedDish.id ? updatedDish : d));
             setModifyingDish(updatedDish);
           }}
-          onUnlock={(dishId) => {
-            if (!userProfile) return;
-            // GAMIFICATION: Burn 1 Credit
-            const newCredits = Math.max(0, (userProfile.credits || 0) - 1);
-            const newUnlocked = [...(userProfile.unlockedDishIds || []), dishId];
-            setUserProfile({ ...userProfile, credits: newCredits, unlockedDishIds: newUnlocked });
-          }}
           onCook={(dish, usedIngredients) => {
-            // GAMIFICATION: Earn 3 Credits
-            if (userProfile) {
-              const newCredits = (userProfile.credits || 0) + 3;
-              setUserProfile({ ...userProfile, credits: newCredits });
-            }
-            // Update Pantry
             setPantryStock(prev => prev.filter(item => !usedIngredients.includes(item)));
             setModifyingDish(null);
           }}
@@ -293,7 +292,7 @@ const App: React.FC = () => {
           missingIngredients={[]}
           onClose={() => setShowReceipt(false)}
           onSend={() => {
-            alert("Order Transmitted to Kitchen Display System (Simulated)");
+            alert("Order Transmitted (Simulated)");
             setShowReceipt(false);
           }}
         />

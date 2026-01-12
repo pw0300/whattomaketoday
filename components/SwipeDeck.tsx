@@ -25,10 +25,10 @@ type ViewMode = 'deck' | 'registry';
 
 const LOADING_STEPS = [
     { label: "Sourcing Global Trends", icon: Globe },
-    { label: "Validating Bio-Constraints", icon: PackageCheck },
+    { label: "Checking Health Filters", icon: PackageCheck },
     { label: "Calculating Flavor Synergy", icon: BrainCircuit },
-    { label: "Optimizing Pantry Delta", icon: ShoppingBasket },
-    { label: "Compiling Chef Instructions", icon: Terminal }
+    { label: "Matching Pantry Items", icon: ShoppingBasket },
+    { label: "Preparing Recipe", icon: Terminal }
 ];
 
 const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onSwipe, onUndo, onModify, onImport, onDelete, pantryStock, userProfile, initialImportTab, fetchingMore }) => {
@@ -136,10 +136,10 @@ const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onS
             <div className="w-full px-4 pt-4 pb-2 z-10 border-b-2 border-ink bg-paper">
                 <div className="flex justify-between items-center mb-4">
                     <div>
-                        <h2 className="text-3xl font-black text-ink uppercase tracking-tight leading-none">R&D Hub</h2>
+                        <h2 className="text-3xl font-black text-ink uppercase tracking-tight leading-none">Discover</h2>
                         <div className="flex items-center gap-2 mt-1">
                             <span className="font-mono text-[9px] text-gray-500 uppercase font-black">
-                                {fetchingMore ? 'Intelligence Active' : 'Registry Database'}
+                                {fetchingMore ? 'Finding Dishes' : 'My Collection'}
                             </span>
                             {fetchingMore && <Loader2 className="animate-spin text-brand-500" size={10} />}
                         </div>
@@ -177,7 +177,7 @@ const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onS
                             <div className="absolute top-4 left-4 font-mono text-[8px] uppercase tracking-widest opacity-40">Process: RECIPE_GEN_V2</div>
                             <div className="mb-8">
                                 {React.createElement(LOADING_STEPS[loadingStep].icon, { className: "w-12 h-12 text-brand-500 mb-4 animate-pulse" })}
-                                <h3 className="text-2xl font-black uppercase leading-none tracking-tighter">Sourcing Intel</h3>
+                                <h3 className="text-2xl font-black uppercase leading-none tracking-tighter">Finding Ideas</h3>
                                 <p className="font-mono text-[10px] text-brand-500 uppercase mt-2">{LOADING_STEPS[loadingStep].label}</p>
                             </div>
 
@@ -192,7 +192,7 @@ const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onS
 
                             <div className="mt-8 flex items-center gap-3">
                                 <Loader2 className="animate-spin text-brand-500" size={16} />
-                                <span className="font-mono text-[9px] uppercase font-bold text-white/40">Synchronizing with Knowledge Graph...</span>
+                                <span className="font-mono text-[9px] uppercase font-bold text-white/40">Curating for you...</span>
                             </div>
                         </div>
                     ) : (

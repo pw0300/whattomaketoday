@@ -11,18 +11,18 @@ const IntroWalkthrough: React.FC<Props> = ({ onComplete }) => {
 
   const slides = [
     {
-      title: "The Household Food OS",
-      subtitle: "Eliminate the domestic planning tax.",
-      description: "ChefSync is an AI-powered logistics engine for your kitchen. It handles meal planning, inventory, and procurement so you don't have to.",
+      title: "Your Digital Sous-Chef",
+      subtitle: "Simplify your home cooking.",
+      description: "ChefSync is your personal kitchen assistant. It handles meal planning, grocery lists, and recipes so you don't have to.",
       visual: (
          <div className="text-8xl">👨‍🍳</div>
       ),
       icon: null
     },
     {
-      title: "R&D Phase",
-      subtitle: "Curate your database.",
-      description: "Swipe on AI-generated dishes tailored to your taste profile. Right to approve, Up to make it a household staple.",
+      title: "Discover New Favorites",
+      subtitle: "Curate your personal menu.",
+      description: "Swipe on dishes tailored to your tastes. Right to save to your collection, Up to mark as a household staple.",
       visual: (
         <div className="relative w-32 h-44 bg-white border-2 border-ink shadow-hard flex flex-col items-center justify-center p-2 rotate-6">
              <div className="absolute top-2 right-2 text-ink"><Heart size={16} fill="currentColor" /></div>
@@ -39,9 +39,9 @@ const IntroWalkthrough: React.FC<Props> = ({ onComplete }) => {
       icon: <Layers size={32}/>
     },
     {
-      title: "Run of Show",
-      subtitle: "Automated Service Rotation.",
-      description: "Approved dishes are automatically compiled into a cohesive weekly plan. Swap meal slots instantly if plans change.",
+      title: "Weekly Planning",
+      subtitle: "Automated Dish Rotation.",
+      description: "Saved dishes are automatically organized into a weekly plan. Swap meal slots instantly if plans change.",
       visual: (
         <div className="w-48 bg-white border-2 border-ink shadow-hard p-2 flex flex-col gap-2">
             <div className="flex gap-2 items-center">
@@ -63,9 +63,9 @@ const IntroWalkthrough: React.FC<Props> = ({ onComplete }) => {
       icon: <LayoutGrid size={32}/>
     },
     {
-      title: "Procurement",
-      subtitle: "Smart inventory management.",
-      description: "Ingredients are automatically tallied. Check your pantry stock to generate a precise shopping list manifest.",
+      title: "Smart Shopping",
+      subtitle: "Intelligent grocery lists.",
+      description: "Ingredients are automatically summed up. Check your pantry stock to generate a precise shopping list.",
       visual: (
         <div className="w-40 bg-white border-2 border-ink shadow-hard p-4 relative">
             <div className="absolute -top-3 -right-3 bg-brand-500 text-white text-[10px] font-bold px-2 py-1 border border-ink shadow-sm">GENERATED</div>
@@ -86,9 +86,9 @@ const IntroWalkthrough: React.FC<Props> = ({ onComplete }) => {
       icon: <ClipboardList size={32}/>
     },
     {
-      title: "Safety Protocols",
-      subtitle: "Dietary constraints are law.",
-      description: "Set strict allergen filters and biological constraints. The AI will never suggest a dish that violates your rules.",
+      title: "Dietary Safety",
+      subtitle: "Your health comes first.",
+      description: "Set strict allergen filters and health goals. The AI will never suggest a dish that violates your rules.",
       visual: (
         <div className="w-32 h-32 rounded-full border-2 border-ink flex items-center justify-center bg-red-50 text-red-500 shadow-hard">
             <ShieldAlert size={64} strokeWidth={1.5} />

@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from 'react';
 import { enrichDishDetails } from '../services/geminiService';
 import { Dish, Ingredient } from '../types';
 import { Save, X, ChefHat, ScrollText, Users, Play, CheckCircle, Circle, ArrowLeft, Maximize2, Trash2, CheckSquare, Square, Lock, Key } from 'lucide-react';
@@ -8,12 +9,9 @@ interface Props {
     onSave: (dishId: string, notes: string, servings: number) => void;
     onCook?: (dish: Dish, usedIngredients: string[]) => void;
     onUpdate?: (dish: Dish) => void;
-    userCredits: number;
-    isUnlocked: boolean;
-    onUnlock?: (dishId: string) => void;
 }
 
-const DishModal: React.FC<Props> = ({ dish, onClose, onSave, onCook, onUpdate, userCredits = 0, isUnlocked = false, onUnlock }) => {
+const DishModal: React.FC<Props> = ({ dish, onClose, onSave, onCook, onUpdate }) => {
     const [notes, setNotes] = useState(dish.userNotes || '');
     const [tab, setTab] = useState<'recipe' | 'notes'>('recipe');
     const [servings, setServings] = useState(dish.servings || 1);
@@ -349,7 +347,7 @@ const DishModal: React.FC<Props> = ({ dish, onClose, onSave, onCook, onUpdate, u
                                 ) : (
                                     <div className="text-center py-4 border-2 border-dashed border-gray-300 bg-gray-50 p-4">
                                         <Lock className="mx-auto text-gray-400 mb-2" size={24} />
-                                        <p className="font-mono text-xs text-gray-400 uppercase mb-2">Recipe Locked</p>
+                                        <p className="font-mono text-xs text-gray-400 uppercase mb-2">Full Recipe Not Loaded</p>
                                         {onUpdate && (
                                             <button
                                                 onClick={async () => {
@@ -359,9 +357,9 @@ const DishModal: React.FC<Props> = ({ dish, onClose, onSave, onCook, onUpdate, u
                                                     setIsEnriching(false);
                                                 }}
                                                 disabled={isEnriching}
-                                                className="bg-ink text-white px-4 py-2 font-bold uppercase text-xs rounded-md"
+                                                className="bg-ink text-white px-4 py-2 font-bold uppercase text-xs rounded-md shadow-hard-sm active:translate-y-px active:shadow-none"
                                             >
-                                                {isEnriching ? "Unlocking..." : "Use Token to Unlock"}
+                                                {isEnriching ? "Loading Recipe..." : "Load Full Recipe"}
                                             </button>
                                         )}
                                     </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Dish, DayPlan, VibeMode, UserProfile } from '../types';
 import { DAYS_OF_WEEK } from '../constants';
-import { generateCookAudio } from '../services/geminiService';
+import { generateCookAudio, generateCookInstructions } from '../services/geminiService';
 import { RefreshCw, Zap, Coffee, RotateCw, Send, ArrowDownCircle, Eraser, Lock, Unlock, Sparkles, Link as LinkIcon, CheckSquare, MessageCircle, Mic, Play, Loader2 } from 'lucide-react';
 
 interface Props {
@@ -22,6 +22,7 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
 
   // Cook Bridge State
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
+  const [isGeneratingText, setIsGeneratingText] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
 
   // Load from LocalStorage on mount
@@ -256,34 +257,35 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
   };
 
   // --- COOK BRIDGE (WhatsApp + Audio) ---
-  const handleWhatsAppShare = () => {
-    let message = `👨‍🍳 *Kitchen Orders (Run of Show)*\n\n`;
-    weekPlan.forEach(d => {
-      if (!d.lunch && !d.dinner) return;
-      message += `*${d.day}*\n`;
-      if (d.lunch) {
-        message += `☀️ Lunch: ${d.lunch.name} (${d.lunch.localName})\n`;
-        message += `   _Waitlist: ${d.lunch.primaryIngredient}_\n`;
-      }
-      if (d.dinner) {
-        message += `🌙 Dinner: ${d.dinner.name} (${d.dinner.localName})\n`;
-        message += `   _Waitlist: ${d.dinner.primaryIngredient}_\n`;
-      }
-      if (d.lunch?.userNotes || d.dinner?.userNotes) {
-        message += `   📝 Note: ${d.lunch?.userNotes || ''} ${d.dinner?.userNotes || ''}\n`;
-      }
-      message += `\n`;
-    });
+  const handleWhatsAppShare = async () => {
+    setIsGeneratingText(true);
+    try {
+      // 1. Generate Hindi Instructions via Gemini
+      const aiInstructions = await generateCookInstructions(weekPlan);
 
-    message += `\n🎵 *Instructions (Hinglish)*:\n`;
-    message += `(Audio sent separately via App. Read below)\n`;
-    message += `Please ensure low oil usage. Masala kam rakhna.`;
+      // 2. Fallback if AI fails
+      let message = aiInstructions || `👨‍🍳 *Kitchen Orders*\n\n`;
 
-    // In a real app, we would await generateCookAudio text transcript here, 
-    // but for now we provide the structured menu which IS the script.
+      if (!aiInstructions) {
+        // Manual fallback format
+        weekPlan.forEach(d => {
+          if (!d.lunch && !d.dinner) return;
+          message += `*${d.day}*\n`;
+          if (d.lunch) message += `☀️ ${d.lunch.localName}\n`;
+          if (d.dinner) message += `🌙 ${d.dinner.localName}\n`;
+          message += `\n`;
+        });
+        message += `(AI Generation Failed - Sending Manual List)`;
+      }
 
-    const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
-    window.open(url, '_blank');
+      // 3. Open WhatsApp
+      const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
+      window.open(url, '_blank');
+    } catch (e) {
+      alert("Failed to generate instructions");
+    } finally {
+      setIsGeneratingText(false);
+    }
   };
 
   const handleAudioBriefing = async () => {
@@ -473,10 +475,11 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
           </button>
           <button
             onClick={handleWhatsAppShare}
+            disabled={isGeneratingText}
             className="bg-green-500 text-white w-12 h-12 flex items-center justify-center border-2 border-ink shadow-hard hover:translate-y-1 hover:shadow-none transition-all rounded-full"
             title="Send to WhatsApp"
           >
-            <MessageCircle size={24} />
+            {isGeneratingText ? <Loader2 size={24} className="animate-spin" /> : <MessageCircle size={24} />}
           </button>
         </div>
 

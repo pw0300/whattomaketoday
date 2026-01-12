@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { DayPlan, Ingredient } from '../types';
-import { Share2, CheckSquare, Square, ShoppingCart, Plus, Trash2, XCircle, Utensils } from 'lucide-react';
+import { getCommerceLinks } from '../utils/commerceUtils';
+import { Share2, CheckSquare, Square, ShoppingCart, Plus, Trash2, XCircle, Utensils, ExternalLink } from 'lucide-react';
 
 interface Props {
   plan: DayPlan[];
@@ -31,11 +32,11 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
   useEffect(() => {
     localStorage.setItem('chefSync_customGrocery', JSON.stringify(customItems));
   }, [customItems]);
-  
+
   const checkStock = (needed: string) => {
-      const clean = (s: string) => s.toLowerCase().trim().replace(/s$/, '');
-      const target = clean(needed);
-      return pantryStock.some(s => clean(s) === target);
+    const clean = (s: string) => s.toLowerCase().trim().replace(/s$/, '');
+    const target = clean(needed);
+    return pantryStock.some(s => clean(s) === target);
   };
 
   const handleAddCustom = () => {
@@ -50,8 +51,8 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
   };
 
   const handleClearCompleted = () => {
-      const activeCustoms = customItems.filter(i => !checkStock(i));
-      setCustomItems(activeCustoms);
+    const activeCustoms = customItems.filter(i => !checkStock(i));
+    setCustomItems(activeCustoms);
   };
 
   // --- MATH ENGINE DUPLICATION (Lean implementation) ---
@@ -59,42 +60,42 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
     if (!servings || servings === 1) return rawQty;
 
     const parseQuantity = (qty: string): number | null => {
-        const clean = qty.trim();
-        const mixedMatch = clean.match(/^(\d+)[\s-](\d+)\/(\d+)$/);
-        if (mixedMatch) return parseInt(mixedMatch[1]) + (parseInt(mixedMatch[2]) / parseInt(mixedMatch[3]));
-        const fractionMatch = clean.match(/^(\d+)\/(\d+)$/);
-        if (fractionMatch) return parseInt(fractionMatch[1]) / parseInt(fractionMatch[2]);
-        const decimalMatch = clean.match(/^(\d+(\.\d+)?)$/);
-        if (decimalMatch) return parseFloat(decimalMatch[1]);
-        return null;
+      const clean = qty.trim();
+      const mixedMatch = clean.match(/^(\d+)[\s-](\d+)\/(\d+)$/);
+      if (mixedMatch) return parseInt(mixedMatch[1]) + (parseInt(mixedMatch[2]) / parseInt(mixedMatch[3]));
+      const fractionMatch = clean.match(/^(\d+)\/(\d+)$/);
+      if (fractionMatch) return parseInt(fractionMatch[1]) / parseInt(fractionMatch[2]);
+      const decimalMatch = clean.match(/^(\d+(\.\d+)?)$/);
+      if (decimalMatch) return parseFloat(decimalMatch[1]);
+      return null;
     };
 
     const formatQuantity = (val: number): string => {
-        if (val === 0) return "";
-        if (Number.isInteger(val)) return val.toString();
-        const whole = Math.floor(val);
-        const decimal = val - whole;
-        const closeTo = (n: number, target: number) => Math.abs(n - target) < 0.05;
-        let frac = "";
-        if (closeTo(decimal, 0.25)) frac = "¼";
-        else if (closeTo(decimal, 0.33)) frac = "⅓";
-        else if (closeTo(decimal, 0.5)) frac = "½";
-        else if (closeTo(decimal, 0.66)) frac = "⅔";
-        else if (closeTo(decimal, 0.75)) frac = "¾";
-        else frac = decimal.toFixed(1).replace('.0', '');
-        if (frac.startsWith("0.")) return frac;
-        return whole > 0 ? `${whole} ${frac}` : frac;
+      if (val === 0) return "";
+      if (Number.isInteger(val)) return val.toString();
+      const whole = Math.floor(val);
+      const decimal = val - whole;
+      const closeTo = (n: number, target: number) => Math.abs(n - target) < 0.05;
+      let frac = "";
+      if (closeTo(decimal, 0.25)) frac = "¼";
+      else if (closeTo(decimal, 0.33)) frac = "⅓";
+      else if (closeTo(decimal, 0.5)) frac = "½";
+      else if (closeTo(decimal, 0.66)) frac = "⅔";
+      else if (closeTo(decimal, 0.75)) frac = "¾";
+      else frac = decimal.toFixed(1).replace('.0', '');
+      if (frac.startsWith("0.")) return frac;
+      return whole > 0 ? `${whole} ${frac}` : frac;
     };
 
     const match = rawQty.match(/^([\d\s\/\.-]+)(.*)$/);
     if (match) {
-        const numberPart = match[1].trim();
-        const textPart = match[2];
-        const val = parseQuantity(numberPart);
-        if (val !== null) {
-            const scaled = val * servings;
-            return `${formatQuantity(scaled)}${textPart}`;
-        }
+      const numberPart = match[1].trim();
+      const textPart = match[2];
+      const val = parseQuantity(numberPart);
+      if (val !== null) {
+        const scaled = val * servings;
+        return `${formatQuantity(scaled)}${textPart}`;
+      }
     }
     return `${rawQty} (x${servings})`;
   };
@@ -107,13 +108,13 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
     };
 
     const processIngredient = (ing: Ingredient, sourceDish: string, servings: number) => {
-        const scaledQty = getScaledQuantity(ing.quantity, servings);
-        const item: GroceryItem = { ...ing, quantity: scaledQty, source: sourceDish };
-        if (agg[ing.category]) {
-            agg[ing.category].push(item);
-        } else {
-            agg['Pantry'].push(item);
-        }
+      const scaledQty = getScaledQuantity(ing.quantity, servings);
+      const item: GroceryItem = { ...ing, quantity: scaledQty, source: sourceDish };
+      if (agg[ing.category]) {
+        agg[ing.category].push(item);
+      } else {
+        agg['Pantry'].push(item);
+      }
     };
 
     plan.forEach(day => {
@@ -123,7 +124,7 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
 
     // Add custom items to "Misc"
     customItems.forEach(item => {
-        agg['Misc'].push({ name: item, quantity: '1 unit', category: 'Pantry', source: 'Manual Entry' }); 
+      agg['Misc'].push({ name: item, quantity: '1 unit', category: 'Pantry', source: 'Manual Entry' });
     });
 
     return agg;
@@ -144,7 +145,7 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
           <h2 className="text-2xl font-black uppercase text-ink">Shopping List</h2>
           <p className="font-mono text-xs text-gray-600">Procurement</p>
         </div>
-        <button 
+        <button
           onClick={onPrintTicket}
           className="bg-white text-ink border-2 border-ink px-4 py-2 font-bold uppercase shadow-hard hover:shadow-none hover:translate-y-1 transition flex items-center gap-2 text-xs"
         >
@@ -155,33 +156,33 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
 
       {/* Progress Bar */}
       <div className="h-2 w-full bg-gray-200 border-b-2 border-ink">
-         <div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${progress}%` }}></div>
+        <div className="h-full bg-green-500 transition-all duration-500" style={{ width: `${progress}%` }}></div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-8 pb-32">
         {/* Custom Item Input */}
         <div className="flex gap-2 mb-6">
-            <input 
-                type="text"
-                placeholder="Add household items (e.g. Dish Soap)..."
-                className="flex-1 border-2 border-ink p-2 font-mono text-xs focus:bg-yellow-50 focus:outline-none"
-                value={newItemInput}
-                onChange={(e) => setNewItemInput(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAddCustom()}
-            />
-            <button onClick={handleAddCustom} className="bg-ink text-white px-3 border-2 border-ink shadow-hard active:translate-y-1 active:shadow-none">
-                <Plus size={16} />
-            </button>
+          <input
+            type="text"
+            placeholder="Add household items (e.g. Dish Soap)..."
+            className="flex-1 border-2 border-ink p-2 font-mono text-xs focus:bg-yellow-50 focus:outline-none"
+            value={newItemInput}
+            onChange={(e) => setNewItemInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleAddCustom()}
+          />
+          <button onClick={handleAddCustom} className="bg-ink text-white px-3 border-2 border-ink shadow-hard active:translate-y-1 active:shadow-none">
+            <Plus size={16} />
+          </button>
         </div>
 
         {/* Clear Custom Completed */}
         {customItems.some(i => checkStock(i)) && (
-             <button 
-                onClick={handleClearCompleted}
-                className="w-full mb-4 text-[10px] font-bold uppercase text-red-500 hover:text-red-700 flex items-center justify-center gap-1 border border-red-200 bg-red-50 p-2"
-            >
-                <XCircle size={12} /> Clear Checked Custom Items
-            </button>
+          <button
+            onClick={handleClearCompleted}
+            className="w-full mb-4 text-[10px] font-bold uppercase text-red-500 hover:text-red-700 flex items-center justify-center gap-1 border border-red-200 bg-red-50 p-2"
+          >
+            <XCircle size={12} /> Clear Checked Custom Items
+          </button>
         )}
 
         {/* Fix: Explicitly cast Object.entries result to handle unknown type inference */}
@@ -190,10 +191,10 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
           // 1. Unchecked first
           // 2. Then Alphabetical by Name (so identical items group together)
           const sortedList = [...items].sort((a, b) => {
-              const aChecked = checkStock(a.name);
-              const bChecked = checkStock(b.name);
-              if (aChecked !== bChecked) return aChecked ? 1 : -1;
-              return a.name.localeCompare(b.name);
+            const aChecked = checkStock(a.name);
+            const bChecked = checkStock(b.name);
+            if (aChecked !== bChecked) return aChecked ? 1 : -1;
+            return a.name.localeCompare(b.name);
           });
 
           return sortedList.length > 0 && (
@@ -204,13 +205,13 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
                   const isChecked = checkStock(item.name);
                   const isCustom = category === 'Misc';
                   const key = `${item.name}-${idx}`; // Unique key since we now allow dupes
-                  
+
                   return (
-                    <div 
-                      key={key} 
+                    <div
+                      key={key}
                       className={`flex items-start gap-3 p-2 transition group ${isChecked ? 'opacity-40 bg-gray-50' : 'hover:bg-yellow-50'}`}
                     >
-                      <div 
+                      <div
                         onClick={() => onToggleItem(item.name)}
                         className={`mt-0.5 text-ink transition-colors cursor-pointer group-hover:text-brand-600`}
                       >
@@ -218,24 +219,42 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
                       </div>
                       <div className="flex-1 leading-tight flex justify-between items-start">
                         <div>
-                            <p className={`font-bold text-sm ${isChecked ? 'line-through decoration-2 decoration-ink text-gray-500' : 'text-ink'}`}>
+                          <p className={`font-bold text-sm ${isChecked ? 'line-through decoration-2 decoration-ink text-gray-500' : 'text-ink'}`}>
                             {item.name}
-                            </p>
-                            {!isCustom && (
-                                <div className="flex flex-col gap-0.5 mt-0.5">
-                                    <span className="font-mono text-xs text-gray-700 font-bold">{item.quantity}</span>
-                                    {/* CONTEXT: Show which dish this is for */}
-                                    <span className="text-[9px] uppercase text-gray-400 flex items-center gap-1">
-                                        <Utensils size={8} /> {item.source}
-                                    </span>
-                                </div>
-                            )}
+                          </p>
+                          {!isCustom && (
+                            <div className="flex flex-col gap-0.5 mt-0.5">
+                              <span className="font-mono text-xs text-gray-700 font-bold">{item.quantity}</span>
+                              {/* CONTEXT: Show which dish this is for */}
+                              <span className="text-[9px] uppercase text-gray-400 flex items-center gap-1">
+                                <Utensils size={8} /> {item.source}
+                              </span>
+                            </div>
+                          )}
                         </div>
-                        {isCustom && (
+                        <div className="flex gap-2 items-center">
+                          {!isCustom && !isChecked && (
+                            <div className="hidden group-hover:flex gap-1">
+                              {getCommerceLinks(item.name).slice(0, 2).map(link => (
+                                <a
+                                  key={link.name}
+                                  href={link.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={`text-[9px] font-bold uppercase px-1 py-0.5 rounded flex items-center gap-1 ${link.name === 'Blinkit' ? 'bg-yellow-400 text-black' : 'bg-purple-600 text-white'}`}
+                                  title={`Buy on ${link.name}`}
+                                >
+                                  {link.name.substr(0, 1)} <ExternalLink size={8} />
+                                </a>
+                              ))}
+                            </div>
+                          )}
+                          {isCustom && (
                             <button onClick={() => removeCustom(item.name)} className="text-gray-400 hover:text-red-500">
-                                <Trash2 size={14} />
+                              <Trash2 size={14} />
                             </button>
-                        )}
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -245,10 +264,10 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
           );
         })}
         {isEmpty && (
-           <div className="flex flex-col items-center justify-center mt-20 text-gray-400">
-             <ShoppingCart size={48} className="mb-4 opacity-20" />
-             <p className="font-mono text-sm uppercase">No Active Requirements</p>
-           </div>
+          <div className="flex flex-col items-center justify-center mt-20 text-gray-400">
+            <ShoppingCart size={48} className="mb-4 opacity-20" />
+            <p className="font-mono text-sm uppercase">No Active Requirements</p>
+          </div>
         )}
       </div>
     </div>

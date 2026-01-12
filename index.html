@@ -25,14 +25,16 @@
               sans: ['Inter', 'sans-serif'],
               mono: ['Space Mono', 'monospace'],
             },
-            boxShadow: {
-              'hard': '4px 4px 0px 0px #18181b',
-              'hard-sm': '2px 2px 0px 0px #18181b',
-            }
           }
         }
       }
     </script>
+    <style>
+      /* Soft Modern Overrides */
+      .soft-shadow {
+        box-shadow: 0 4px 12px -2px rgba(0, 0, 0, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04);
+      }
+    </style>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
       body {
@@ -77,5 +79,24 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
+    <script>
+       // Runtime Token Injection for Soft UI
+       // We override the harsh borders defined in components by injecting a global style
+       const style = document.createElement('style');
+       style.textContent = `
+         *, ::before, ::after {
+           border-width: 0px !important; 
+           border-style: solid;
+           border-color: #e5e7eb;
+         }
+         .border-2 { border-width: 1px !important; }
+         .border-b-2 { border-bottom-width: 1px !important; }
+         .border-t-2 { border-top-width: 1px !important; }
+         .shadow-hard { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important; }
+         .shadow-hard-sm { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important; }
+         .rounded-none { border-radius: 0.5rem !important; }
+       `;
+       document.head.appendChild(style);
+    </script>
   </body>
 </html>
