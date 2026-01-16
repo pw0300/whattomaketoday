@@ -24,11 +24,11 @@ type ImportTab = 'text' | 'image' | 'video' | 'pantry';
 type ViewMode = 'deck' | 'registry';
 
 const LOADING_STEPS = [
-    { label: "Sourcing Global Trends", icon: Globe },
-    { label: "Checking Health Filters", icon: PackageCheck },
-    { label: "Calculating Flavor Synergy", icon: BrainCircuit },
-    { label: "Matching Pantry Items", icon: ShoppingBasket },
-    { label: "Preparing Recipe", icon: Terminal }
+    { label: "Looking for recipes", icon: Globe },
+    { label: "Checking your diet", icon: PackageCheck },
+    { label: "Finding good matches", icon: BrainCircuit },
+    { label: "Checking pantry", icon: ShoppingBasket },
+    { label: "Preparing cards", icon: Terminal }
 ];
 
 const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onSwipe, onUndo, onModify, onImport, onDelete, pantryStock, userProfile, initialImportTab, fetchingMore }) => {
@@ -94,7 +94,7 @@ const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onS
 
     const triggerFeedback = (direction: SwipeDirection) => {
         if (direction === SwipeDirection.Right) setFeedback({ text: 'APPROVED', color: 'text-green-500 border-green-500', rotation: -6 });
-        else if (direction === SwipeDirection.Left) setFeedback({ text: "86'D", color: 'text-red-500 border-red-500', rotation: 6 });
+        else if (direction === SwipeDirection.Left) setFeedback({ text: 'SKIPPED', color: 'text-red-500 border-red-500', rotation: 6 });
         else if (direction === SwipeDirection.Up) setFeedback({ text: 'STAPLE', color: 'text-blue-500 border-blue-500', rotation: 0 });
         setTimeout(() => setFeedback(null), 700);
     };
@@ -139,7 +139,7 @@ const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onS
                         <h2 className="text-3xl font-black text-ink uppercase tracking-tight leading-none">Discover</h2>
                         <div className="flex items-center gap-2 mt-1">
                             <span className="font-mono text-[9px] text-gray-500 uppercase font-black">
-                                {fetchingMore ? 'Finding Dishes' : 'My Collection'}
+                                {fetchingMore ? 'Finding Dishes' : 'Cookbook'}
                             </span>
                             {fetchingMore && <Loader2 className="animate-spin text-brand-500" size={10} />}
                         </div>
@@ -174,7 +174,7 @@ const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onS
                     {isDeckEmpty ? (
                         /* GHOST SOURCING CONSOLE */
                         <div className="w-full max-w-xs aspect-[3/4.5] bg-ink text-white border-4 border-ink shadow-[12px_12px_0px_0px_rgba(0,0,0,0.1)] p-8 flex flex-col justify-center relative overflow-hidden rounded-2xl">
-                            <div className="absolute top-4 left-4 font-mono text-[8px] uppercase tracking-widest opacity-40">Process: RECIPE_GEN_V2</div>
+                            <div className="absolute top-4 left-4 font-mono text-[8px] uppercase tracking-widest opacity-40">Finding new recipes</div>
                             <div className="mb-8">
                                 {React.createElement(LOADING_STEPS[loadingStep].icon, { className: "w-12 h-12 text-brand-500 mb-4 animate-pulse" })}
                                 <h3 className="text-2xl font-black uppercase leading-none tracking-tighter">Finding Ideas</h3>
@@ -227,7 +227,7 @@ const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onS
 
                                     <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border-2 text-[9px] font-black uppercase mb-4 self-start ${currentMatch >= 75 ? 'border-brand-500 bg-brand-50 text-brand-600' : 'border-gray-200 bg-gray-50 text-gray-400'}`}>
                                         <PackageCheck size={12} />
-                                        {currentMatch}% Pantry Sync
+                                        {currentMatch}% Pantry Match
                                     </div>
 
                                     {currentDish.healthTags && currentDish.healthTags.length > 0 && (
@@ -247,7 +247,7 @@ const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onS
                                     {currentDish.chefAdvice && (
                                         <div className="mt-auto bg-paper border-2 border-ink p-4 relative rounded-xl shadow-hard-sm">
                                             <Quote size={20} className="absolute -top-3 -left-1 text-brand-500 fill-current" />
-                                            <p className="font-mono text-[9px] font-black uppercase text-ink/30 mb-1">Dadi's Intel</p>
+                                            <p className="font-mono text-[9px] font-black uppercase text-ink/30 mb-1">Chef's Tip</p>
                                             <p className="font-serif italic text-sm text-ink leading-tight font-black">"{currentDish.chefAdvice}"</p>
                                         </div>
                                     )}
@@ -285,7 +285,7 @@ const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onS
                 <div className="fixed inset-0 z-[100] bg-ink/60 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in">
                     <div className="bg-paper w-full max-w-sm border-2 border-ink shadow-hard p-6 rounded-2xl relative">
                         <button onClick={() => setShowImport(false)} className="absolute top-4 right-4"><X size={24} /></button>
-                        <h3 className="text-xl font-black uppercase mb-6 flex items-center gap-2"><Sparkles className="text-brand-500" /> Sourcing Intel</h3>
+                        <h3 className="text-xl font-black uppercase mb-6 flex items-center gap-2"><Sparkles className="text-brand-500" /> Add Recipe</h3>
                         <div className="flex gap-2 mb-6">
                             {(['text', 'image', 'pantry'] as ImportTab[]).map(t => (
                                 <button key={t} onClick={() => setImportTab(t)} className={`flex-1 py-2 font-mono text-[10px] font-black uppercase border-2 ${importTab === t ? 'bg-ink text-white' : 'bg-white'}`}>{t}</button>
@@ -298,7 +298,7 @@ const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onS
                             placeholder="Describe dish or paste URL..."
                         />
                         <button onClick={handleMagicImport} disabled={isImporting} className="w-full bg-brand-500 text-white font-black py-4 uppercase border-2 border-ink shadow-hard transition-all disabled:opacity-50 rounded-xl">
-                            {isImporting ? <Loader2 className="animate-spin mx-auto" /> : "Initiate Import"}
+                            {isImporting ? <Loader2 className="animate-spin mx-auto" /> : "Add Recipe"}
                         </button>
                     </div>
                 </div>

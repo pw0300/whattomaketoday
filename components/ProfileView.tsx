@@ -116,8 +116,8 @@ const ProfileView: React.FC<Props> = ({ userProfile, onUpdateProfile, onFactoryR
       {/* Header */}
       <div className="p-4 border-b-2 border-ink bg-paper sticky top-0 z-10 flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-black uppercase text-ink">Back Office</h2>
-          <p className="font-mono text-xs text-gray-600">House Rules & Config</p>
+          <h2 className="text-2xl font-black uppercase text-ink">My Profile</h2>
+          <p className="font-mono text-xs text-gray-600">Settings</p>
         </div>
         <button
           onClick={handleSave}
@@ -134,14 +134,14 @@ const ProfileView: React.FC<Props> = ({ userProfile, onUpdateProfile, onFactoryR
         <div className="bg-ink text-white p-6 rounded-2xl shadow-hard mb-8 relative overflow-hidden">
           <div className="relative z-10 flex justify-between items-start">
             <div>
-              <h3 className="font-mono text-[10px] uppercase opacity-60 mb-1">R&D Budget</h3>
+              <h3 className="font-mono text-[10px] uppercase opacity-60 mb-1">Credits</h3>
               <div className="text-4xl font-black tracking-tighter flex items-baseline gap-1">
                 {profile.credits || 0}<span className="text-sm font-bold text-brand-500">CR</span>
               </div>
             </div>
             <div className="text-right">
               <div className="inline-flex items-center gap-1 bg-white/10 px-2 py-1 rounded text-[9px] font-bold uppercase mb-2">
-                <Activity size={10} /> Live Balance
+                <Activity size={10} /> Balance
               </div>
             </div>
           </div>
@@ -158,7 +158,7 @@ const ProfileView: React.FC<Props> = ({ userProfile, onUpdateProfile, onFactoryR
             <div className="bg-white/5 p-2 rounded flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-white text-ink flex items-center justify-center font-black text-xs border-2 border-ink">-1</div>
               <div>
-                <p className="font-bold text-[10px] uppercase">Unlock Spec</p>
+                <p className="font-bold text-[10px] uppercase">View Recipe</p>
                 <p className="text-[8px] opacity-60">Reveal full recipe</p>
               </div>
             </div>
@@ -169,7 +169,7 @@ const ProfileView: React.FC<Props> = ({ userProfile, onUpdateProfile, onFactoryR
         <div className="bg-white border-2 border-ink p-4 shadow-hard-sm">
           <div className="flex items-center gap-2 mb-4 border-b-2 border-gray-100 pb-2">
             <User className="text-ink" size={20} />
-            <h3 className="font-black uppercase text-sm">Executive Chef</h3>
+            <h3 className="font-black uppercase text-sm">Name</h3>
           </div>
           <label className="font-mono text-xs uppercase text-gray-500 block mb-1">Display Name</label>
           <input
@@ -185,7 +185,7 @@ const ProfileView: React.FC<Props> = ({ userProfile, onUpdateProfile, onFactoryR
         <div className="bg-white border-2 border-ink p-4 shadow-hard-sm">
           <div className="flex items-center gap-2 mb-4 border-b-2 border-gray-100 pb-2">
             <Activity className="text-orange-500" size={20} />
-            <h3 className="font-black uppercase text-sm text-orange-500">Biometrics</h3>
+            <h3 className="font-black uppercase text-sm text-orange-500">Body Details</h3>
           </div>
           <div className="grid grid-cols-2 gap-3 mb-3">
             <div>
@@ -240,7 +240,7 @@ const ProfileView: React.FC<Props> = ({ userProfile, onUpdateProfile, onFactoryR
         <div className="bg-white border-2 border-ink p-4 shadow-hard-sm">
           <div className="flex items-center gap-2 mb-4 border-b-2 border-gray-100 pb-2">
             <Utensils className="text-ink" size={20} />
-            <h3 className="font-black uppercase text-sm">Dietary Logic</h3>
+            <h3 className="font-black uppercase text-sm">Dietary Preferences</h3>
           </div>
 
           <div className="mb-4">
@@ -262,7 +262,7 @@ const ProfileView: React.FC<Props> = ({ userProfile, onUpdateProfile, onFactoryR
           </div>
 
           <div>
-            <label className="font-mono text-xs uppercase text-gray-500 block mb-2">Global AI Context</label>
+            <label className="font-mono text-xs uppercase text-gray-500 block mb-2">Always remember</label>
             <textarea
               value={profile.customNotes}
               maxLength={300}
@@ -277,7 +277,7 @@ const ProfileView: React.FC<Props> = ({ userProfile, onUpdateProfile, onFactoryR
         <div className="bg-white border-2 border-ink p-4 shadow-hard-sm">
           <div className="flex items-center gap-2 mb-4 border-b-2 border-gray-100 pb-2">
             <Target className="text-purple-600" size={20} />
-            <h3 className="font-black uppercase text-sm text-purple-600">Performance Metrics</h3>
+            <h3 className="font-black uppercase text-sm text-purple-600">Nutrition Goals</h3>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -323,7 +323,7 @@ const ProfileView: React.FC<Props> = ({ userProfile, onUpdateProfile, onFactoryR
         <div className="bg-white border-2 border-ink p-4 shadow-hard-sm">
           <div className="flex items-center gap-2 mb-4 border-b-2 border-gray-100 pb-2">
             <Globe className="text-ink" size={20} />
-            <h3 className="font-black uppercase text-sm">Cuisine Specialties</h3>
+            <h3 className="font-black uppercase text-sm">Favorite Cuisines</h3>
           </div>
 
           <div className="grid grid-cols-2 gap-2 mb-4">
@@ -384,7 +384,7 @@ const ProfileView: React.FC<Props> = ({ userProfile, onUpdateProfile, onFactoryR
         <div className="bg-white border-2 border-ink p-4 shadow-hard-sm">
           <div className="flex items-center gap-2 mb-4 border-b-2 border-gray-100 pb-2">
             <Shield className="text-red-500" size={20} />
-            <h3 className="font-black uppercase text-sm text-red-500">Allergen 86 List</h3>
+            <h3 className="font-black uppercase text-sm text-red-500">Allergies</h3>
           </div>
           <div className="flex flex-wrap gap-2 mb-4">
             {Object.values(Allergen).map(a => (
@@ -413,7 +413,7 @@ const ProfileView: React.FC<Props> = ({ userProfile, onUpdateProfile, onFactoryR
         <div className="bg-white border-2 border-ink p-4 shadow-hard-sm">
           <div className="flex items-center gap-2 mb-4 border-b-2 border-gray-100 pb-2">
             <Activity className="text-blue-500" size={20} />
-            <h3 className="font-black uppercase text-sm text-blue-500">Dietary Reqs</h3>
+            <h3 className="font-black uppercase text-sm text-blue-500">Health Conditions</h3>
           </div>
           <div className="flex flex-col gap-2 mb-4">
             {Object.values(HealthCondition).filter(x => x !== 'None').map(c => (
@@ -441,7 +441,7 @@ const ProfileView: React.FC<Props> = ({ userProfile, onUpdateProfile, onFactoryR
           {/* Lab Report Edit Field */}
           <div className="mt-4 pt-4 border-t border-gray-200">
             <label className="text-[10px] font-bold uppercase text-gray-500 mb-2 block flex items-center gap-1">
-              <FileText size={12} /> Biometric Analysis
+              <FileText size={12} /> Health Report
             </label>
             {isAnalyzing ? (
               <div className="flex items-center gap-2 text-xs font-mono text-ink animate-pulse p-2">
@@ -474,7 +474,7 @@ const ProfileView: React.FC<Props> = ({ userProfile, onUpdateProfile, onFactoryR
         <div className="border-2 border-red-200 bg-red-50 p-4 mt-4">
           <div className="flex items-center gap-2 mb-2 text-red-600">
             <AlertTriangle size={20} />
-            <h3 className="font-black uppercase text-sm">Danger Zone</h3>
+            <h3 className="font-black uppercase text-sm">Advanced</h3>
           </div>
           <p className="text-[10px] text-red-600 mb-4 font-mono">
             Factory reset will wipe all local data including preferences, pantry stock, and meal plans.

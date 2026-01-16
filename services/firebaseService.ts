@@ -1,14 +1,11 @@
 
-import { initializeApp } from "firebase/app";
 import {
-    getAuth,
     GoogleAuthProvider,
     signInWithPopup,
     onAuthStateChanged as firebaseOnAuthStateChanged,
     User
 } from "firebase/auth";
 import {
-    getFirestore,
     doc,
     setDoc,
     getDoc,
@@ -16,39 +13,11 @@ import {
 } from "firebase/firestore";
 import { AppState } from '../types';
 
-/**
- * Production Firebase Configuration
- * Integrated from project: whattoeat-91e87
- */
-const firebaseConfig = {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-    appId: import.meta.env.VITE_FIREBASE_APP_ID,
-    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
-};
+// Import Firebase instances from centralized lib
+import { auth, db } from '../lib/firebase';
 
-// Initialize Firebase
-// Initialize Firebase (Safe Guard)
-let app, auth: any, db: any, provider: any;
-try {
-    if (!firebaseConfig.apiKey) throw new Error("Missing API Key");
-    app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    db = getFirestore(app);
-    provider = new GoogleAuthProvider();
-} catch (e) {
-    console.warn("Firebase not initialized (Offline Mode):", e);
-    // Mock Auth for UI safety
-    auth = {
-        currentUser: null,
-        signOut: async () => { },
-        onAuthStateChanged: () => () => { } // returns unsubscribe
-    };
-    db = null;
-}
+// Google Auth Provider
+const provider = new GoogleAuthProvider();
 
 export { auth, db };
 
@@ -57,7 +26,7 @@ export { auth, db };
  * Handles Google OAuth flow and session management.
  */
 export const signInWithGoogle = async () => {
-    if (!app) {
+    if (!auth) {
         alert("Authentication unavailable: Missing Configuration");
         throw new Error("Missing Config");
     }
@@ -78,7 +47,7 @@ export const signInWithGoogle = async () => {
 export const logout = () => auth?.signOut();
 
 export const onAuthStateChanged = (callback: (user: User | null) => void) => {
-    if (!app) return () => { };
+    if (!auth) return () => { };
     return firebaseOnAuthStateChanged(auth, callback);
 };
 

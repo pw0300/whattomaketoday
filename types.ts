@@ -51,6 +51,7 @@ export interface UserProfile {
   dailyTargets: Macros;
   isOnboarded: boolean;
   likedDishes: string[]; // For seeding generation
+  credits?: number;
 }
 
 export interface Ingredient {
@@ -101,6 +102,7 @@ export enum AppView {
   Planner = 'Planner',
   Shopping = 'Shopping',
   Pantry = 'Pantry',
+  Viral = 'Viral',
   Profile = 'Profile'
 }
 
@@ -113,4 +115,27 @@ export interface AppState {
   approvedDishes: Dish[];
   weeklyPlan: DayPlan[];
   pantryStock: string[];
+}
+
+// Viral Feed Types (YouTube API)
+export interface ViralVideo {
+  id: string;
+  videoId: string;
+  videoUrl: string;
+  thumbnailUrl: string;
+  title: string;
+  creator: string;
+  creatorAvatar: string;
+  description: string;
+  views: string;
+  likes: string;
+  publishedAt: string;
+  platform: 'youtube' | 'instagram';
+  duration: string;
+}
+
+export interface ViralFeedResult {
+  videos: ViralVideo[];
+  nextPageToken?: string;
+  hasMore: boolean;
 }

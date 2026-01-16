@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { AppView, UserProfile, Dish, SwipeDirection, DayPlan, AppState } from './types';
+import React, { useEffect, useMemo } from 'react';
+import { AppView, UserProfile, Dish, SwipeDirection, AppState } from './types';
 import { INITIAL_DISHES, STORAGE_KEYS } from './constants';
 import { generateNewDishes } from './services/geminiService';
 import {
@@ -11,6 +11,7 @@ import {
   onAuthStateChanged,
   logout
 } from './services/firebaseService';
+import { useStore } from './store/useStore';
 import IntroWalkthrough from './components/IntroWalkthrough';
 import Onboarding from './components/Onboarding';
 import SwipeDeck from './components/SwipeDeck';
@@ -22,29 +23,28 @@ import DishModal from './components/DishModal';
 import Receipt from './components/Receipt';
 import CookView from './components/CookView';
 import AuthOverlay from './components/AuthOverlay';
-import { Layers, LayoutGrid, ClipboardList, Package, Settings, Loader2, User } from 'lucide-react';
+import ViralFeed from './components/ViralFeed';
+import { Layers, LayoutGrid, ClipboardList, Package, Settings, Loader2, User, Flame } from 'lucide-react';
 
 const App: React.FC = () => {
-  // Identity State
-  const [currentUser, setCurrentUser] = useState<{ uid: string, name: string, photo: string } | null>(null);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [showAuth, setShowAuth] = useState(false);
-
-  // App State
-  const [view, setView] = useState<AppView>(AppView.Onboarding);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-
-  // Core Data
-  const [availableDishes, setAvailableDishes] = useState<Dish[]>(INITIAL_DISHES);
-  const [approvedDishes, setApprovedDishes] = useState<Dish[]>([]);
-  const [weeklyPlan, setWeeklyPlan] = useState<DayPlan[]>([]);
-  const [pantryStock, setPantryStock] = useState<string[]>([]);
-
-  const [isSeeding, setIsSeeding] = useState(false);
-  const [fetchingMore, setFetchingMore] = useState(false);
-  const [modifyingDish, setModifyingDish] = useState<Dish | null>(null);
-  const [showReceipt, setShowReceipt] = useState(false);
-  const [initialImportTab, setInitialImportTab] = useState<'text' | 'image' | 'video' | 'pantry' | null>(null);
+  // --- Zustand Store ---
+  const {
+    currentUser, setCurrentUser,
+    isSyncing, setIsSyncing,
+    showAuth, setShowAuth,
+    view, setView,
+    userProfile, setUserProfile,
+    availableDishes, setAvailableDishes,
+    approvedDishes, setApprovedDishes,
+    weeklyPlan, setWeeklyPlan,
+    pantryStock, setPantryStock, togglePantryItem, clearPantry,
+    fetchingMore, setFetchingMore,
+    isSeeding, setIsSeeding,
+    modifyingDish, setModifyingDish,
+    showReceipt, setShowReceipt,
+    initialImportTab, setInitialImportTab,
+    hydrateFromCloud, getAppState,
+  } = useStore();
 
   // Initialize Auth & Local State
   useEffect(() => {
@@ -57,30 +57,18 @@ const App: React.FC = () => {
         });
         const cloudData = await fetchCloudState(firebaseUser.uid);
         if (cloudData) {
-          setUserProfile(cloudData.profile);
-          setApprovedDishes(cloudData.approvedDishes);
-          setWeeklyPlan(cloudData.weeklyPlan);
-          setPantryStock(cloudData.pantryStock);
-          // If profile exists from cloud, go to Swipe
-          setView(AppView.Swipe);
+          hydrateFromCloud(cloudData);
         }
       }
     });
 
     const init = async () => {
       try {
-        const savedProfile = localStorage.getItem(STORAGE_KEYS.PROFILE);
+        // Zustand persist handles profile loading, but we check intro state here
         const introSeen = localStorage.getItem('intro_seen');
 
-        if (savedProfile) {
-          let parsed = JSON.parse(savedProfile);
-          // MIGRATION: Remove legacy credits
-          if (parsed.credits) {
-            const { credits, unlockedDishIds, ...clean } = parsed;
-            parsed = clean;
-            localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(parsed));
-          }
-          setUserProfile(parsed);
+        // If Zustand has a profile (from persist), go to Swipe
+        if (userProfile) {
           setView(AppView.Swipe);
         } else if (!introSeen) {
           setView(AppView.Intro);
@@ -88,27 +76,26 @@ const App: React.FC = () => {
           setView(AppView.Onboarding);
         }
 
-        const savedPantry = localStorage.getItem(STORAGE_KEYS.PANTRY);
-        if (savedPantry) setPantryStock(JSON.parse(savedPantry));
+        // Seed initial dishes if empty
+        if (availableDishes.length === 0) {
+          setAvailableDishes(INITIAL_DISHES);
+        }
       } catch (e) {
         console.error("Init Error", e);
       }
     };
     init();
     return () => unsub();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Sync Bridge
+  // Sync Bridge: Push state to cloud when user is logged in
   useEffect(() => {
     if (currentUser && userProfile) {
-      const state: AppState = {
-        profile: userProfile,
-        approvedDishes,
-        weeklyPlan,
-        pantryStock
-      };
+      const state = getAppState();
       syncStateToCloud(currentUser.uid, state);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [approvedDishes, weeklyPlan, pantryStock, userProfile, currentUser]);
 
   const handleAuth = async () => {
@@ -116,20 +103,10 @@ const App: React.FC = () => {
     try {
       const user = await signInWithGoogle();
       const cloudData = await fetchCloudState(user.uid);
-
-      const currentLocal: AppState = {
-        profile: userProfile!,
-        approvedDishes,
-        weeklyPlan,
-        pantryStock
-      };
-
+      const currentLocal = getAppState();
       const reconciled = reconcileGuestToUser(currentLocal, cloudData);
 
-      setUserProfile(reconciled.profile);
-      setApprovedDishes(reconciled.approvedDishes);
-      setWeeklyPlan(reconciled.weeklyPlan);
-      setPantryStock(reconciled.pantryStock);
+      hydrateFromCloud(reconciled);
       setCurrentUser(user);
       setShowAuth(false);
       setView(AppView.Swipe);
@@ -151,7 +128,7 @@ const App: React.FC = () => {
     if (!dish) return;
 
     if (direction === SwipeDirection.Right || direction === SwipeDirection.Up) {
-      setApprovedDishes(prev => [...prev, { ...dish, isStaple: direction === SwipeDirection.Up }]);
+      setApprovedDishes((prev) => [...prev, { ...dish, isStaple: direction === SwipeDirection.Up }]);
     }
 
     const unswiped = availableDishes.filter(d => !approvedDishes.some(ad => ad.id === d.id)).length;
@@ -161,7 +138,7 @@ const App: React.FC = () => {
       setFetchingMore(true);
       generateNewDishes(6, userProfile, 'Explorer')
         .then(newDishes => {
-          setAvailableDishes(prev => {
+          setAvailableDishes((prev) => {
             const unique = newDishes.filter(nd => !prev.some(pd => pd.id === nd.id));
             return [...prev, ...unique];
           });
@@ -178,10 +155,7 @@ const App: React.FC = () => {
 
   const handleOnboardingComplete = async (profile: UserProfile) => {
     setUserProfile(profile);
-    localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(profile));
-
     setIsSeeding(true);
-    // Initial Generation with Seeds
     try {
       const dishes = await generateNewDishes(6, profile, 'Explorer');
       setAvailableDishes(dishes);
@@ -198,7 +172,7 @@ const App: React.FC = () => {
 
   if (view === AppView.Intro) return <IntroWalkthrough onComplete={handleIntroComplete} />;
 
-  if (isSeeding) return <div className="h-screen flex flex-col items-center justify-center bg-paper font-mono text-xs text-ink"><Loader2 className="animate-spin mb-4" />CURATING MENU...</div>;
+  if (isSeeding) return <div className="h-screen flex flex-col items-center justify-center bg-paper font-mono text-xs text-ink"><Loader2 className="animate-spin mb-4" />loading menu...</div>;
   if (!userProfile || view === AppView.Onboarding) return <Onboarding onComplete={handleOnboardingComplete} />;
 
   return (
@@ -207,7 +181,7 @@ const App: React.FC = () => {
         <div className="flex items-center gap-3">
           <div className={`w-2 h-2 rounded-full ${currentUser ? 'bg-brand-500' : 'bg-gray-300'} animate-pulse`} />
           <span className="font-mono text-[9px] uppercase tracking-widest font-black opacity-40">
-            {currentUser ? 'Cloud Sync Active' : 'Local Guest Mode'}
+            {currentUser ? 'Online' : 'Offline'}
           </span>
         </div>
         <button
@@ -239,26 +213,41 @@ const App: React.FC = () => {
             initialImportTab={initialImportTab}
           />
         )}
+        {view === AppView.Viral && (
+          <ViralFeed
+            onAddToDeck={(dish) => {
+              setAvailableDishes(prev => {
+                const exists = prev.find(d => d.id === dish.id);
+                return exists ? prev : [dish, ...prev];
+              });
+              setApprovedDishes(prev => {
+                const exists = prev.find(d => d.id === dish.id);
+                return exists ? prev : [dish, ...prev];
+              });
+            }}
+          />
+        )}
         {view === AppView.Planner && <WeeklyPlanner approvedDishes={approvedDishes} userProfile={userProfile} onPlanUpdate={setWeeklyPlan} onRequestMoreDishes={() => { }} onPublish={() => setShowReceipt(true)} pantryStock={pantryStock} />}
-        {view === AppView.Shopping && <GroceryList plan={weeklyPlan} pantryStock={pantryStock} onToggleItem={(item) => setPantryStock(prev => prev.includes(item) ? prev.filter(i => i !== item) : [...prev, item])} onPrintTicket={() => setShowReceipt(true)} />}
-        {view === AppView.Pantry && <PantryView pantryStock={pantryStock} onToggleItem={(item) => setPantryStock(prev => prev.includes(item) ? prev.filter(i => i !== item) : [...prev, item])} onBatchAdd={(items) => setPantryStock(prev => [...new Set([...prev, ...items])])} onClear={() => setPantryStock([])} onCookFromPantry={() => { setInitialImportTab('pantry'); setView(AppView.Swipe); }} />}
+        {view === AppView.Shopping && <GroceryList plan={weeklyPlan} pantryStock={pantryStock} onToggleItem={togglePantryItem} onPrintTicket={() => setShowReceipt(true)} />}
+        {view === AppView.Pantry && <PantryView pantryStock={pantryStock} onToggleItem={togglePantryItem} onBatchAdd={(items) => setPantryStock(prev => [...new Set([...prev, ...items])])} onClear={clearPantry} onCookFromPantry={() => { setInitialImportTab('pantry'); setView(AppView.Swipe); }} />}
         {view === AppView.Profile && <ProfileView userProfile={userProfile} onUpdateProfile={setUserProfile} onFactoryReset={() => { localStorage.clear(); window.location.reload(); }} />}
       </div>
 
       <div className="h-20 bg-paper border-t-2 border-ink flex justify-around items-center px-1 shrink-0 safe-area-bottom z-40">
         {[
           { v: AppView.Swipe, l: 'Deck', i: Layers },
+          { v: AppView.Viral, l: 'Feed', i: Flame, highlight: true },
           { v: AppView.Planner, l: 'Plan', i: LayoutGrid },
           { v: AppView.Shopping, l: 'List', i: ClipboardList },
           { v: AppView.Pantry, l: 'Pantry', i: Package },
-          { v: AppView.Profile, l: 'Sys', i: Settings },
+          { v: AppView.Profile, l: 'Me', i: Settings },
         ].map(item => (
           <button
             key={item.v}
             onClick={() => setView(item.v)}
-            className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-all ${view === item.v ? 'bg-ink text-paper shadow-hard-sm' : 'text-gray-500'}`}
+            className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-all ${view === item.v ? 'bg-ink text-paper shadow-hard-sm' : 'text-gray-500'} ${(item as any).highlight && view !== item.v ? 'text-brand-500' : ''}`}
           >
-            <item.i size={20} />
+            <item.i size={20} className={(item as any).highlight && view !== item.v ? 'animate-pulse' : ''} />
             <span className="font-mono text-[9px] font-bold uppercase">{item.l}</span>
           </button>
         ))}
@@ -266,38 +255,42 @@ const App: React.FC = () => {
 
       {showAuth && <AuthOverlay onLogin={handleAuth} onClose={() => setShowAuth(false)} loading={isSyncing} />}
 
-      {modifyingDish && (
-        <DishModal
-          dish={modifyingDish}
-          onClose={() => setModifyingDish(null)}
-          onSave={(id, notes, servings) => {
-            setApprovedDishes(prev => prev.map(d => d.id === id ? { ...d, userNotes: notes, servings } : d));
-            setModifyingDish(null);
-          }}
-          onUpdate={(updatedDish) => {
-            setApprovedDishes(prev => prev.map(d => d.id === updatedDish.id ? updatedDish : d));
-            setAvailableDishes(prev => prev.map(d => d.id === updatedDish.id ? updatedDish : d));
-            setModifyingDish(updatedDish);
-          }}
-          onCook={(dish, usedIngredients) => {
-            setPantryStock(prev => prev.filter(item => !usedIngredients.includes(item)));
-            setModifyingDish(null);
-          }}
-        />
-      )}
+      {
+        modifyingDish && (
+          <DishModal
+            dish={modifyingDish}
+            onClose={() => setModifyingDish(null)}
+            onSave={(id, notes, servings) => {
+              setApprovedDishes(prev => prev.map(d => d.id === id ? { ...d, userNotes: notes, servings } : d));
+              setModifyingDish(null);
+            }}
+            onUpdate={(updatedDish) => {
+              setApprovedDishes(prev => prev.map(d => d.id === updatedDish.id ? updatedDish : d));
+              setAvailableDishes(prev => prev.map(d => d.id === updatedDish.id ? updatedDish : d));
+              setModifyingDish(updatedDish);
+            }}
+            onCook={(dish, usedIngredients) => {
+              setPantryStock(prev => prev.filter(item => !usedIngredients.includes(item)));
+              setModifyingDish(null);
+            }}
+          />
+        )
+      }
 
-      {showReceipt && (
-        <Receipt
-          plan={weeklyPlan}
-          missingIngredients={[]}
-          onClose={() => setShowReceipt(false)}
-          onSend={() => {
-            alert("Order Transmitted (Simulated)");
-            setShowReceipt(false);
-          }}
-        />
-      )}
-    </div>
+      {
+        showReceipt && (
+          <Receipt
+            plan={weeklyPlan}
+            missingIngredients={[]}
+            onClose={() => setShowReceipt(false)}
+            onSend={() => {
+              alert("Order Transmitted (Simulated)");
+              setShowReceipt(false);
+            }}
+          />
+        )
+      }
+    </div >
   );
 };
 

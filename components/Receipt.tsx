@@ -16,13 +16,13 @@ const Receipt: React.FC<Props> = ({ plan, missingIngredients, onClose, onSend })
 
   const handleGenerateVoice = async () => {
     setIsGeneratingAudio(true);
-    const base64Wav = await generateVoiceBriefing(plan);
+    const base64Wav = await generateCookAudio(plan);
     if (base64Wav) {
       const blob = await (await fetch(`data:audio/wav;base64,${base64Wav}`)).blob();
       const url = URL.createObjectURL(blob);
       setAudioUrl(url);
     } else {
-      alert("No special notes detected to voice, or generation failed.");
+      alert("Voice generation is currently disabled.");
     }
     setIsGeneratingAudio(false);
   };
@@ -38,7 +38,7 @@ const Receipt: React.FC<Props> = ({ plan, missingIngredients, onClose, onSend })
         await navigator.share({
           files: [file],
           title: 'Cook Instructions (Hindi)',
-          text: 'ChefSync Audio Briefing for the Cook.'
+          text: 'TadkaSync Audio Briefing for the Cook.'
         });
       } else {
         const a = document.createElement('a');
@@ -73,7 +73,7 @@ const Receipt: React.FC<Props> = ({ plan, missingIngredients, onClose, onSend })
             <div className="flex justify-center mb-3">
               <Printer size={32} strokeWidth={1} />
             </div>
-            <h2 className="text-4xl font-black uppercase tracking-tighter mb-1 scale-y-110">ChefSync OS</h2>
+            <h2 className="text-4xl font-black uppercase tracking-tighter mb-1 scale-y-110">TadkaSync OS</h2>
             <p className="text-[9px] uppercase tracking-widest text-ink/40">INTELLIGENCE LAYER ACTIVATED</p>
             <div className="flex justify-between mt-6 text-[10px] uppercase font-bold border-t border-b border-ink py-2">
               <span>Dte: {new Date().toLocaleDateString()}</span>

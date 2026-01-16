@@ -4,10 +4,10 @@ import { Dish, Allergen } from './types';
 export const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 export const STORAGE_KEYS = {
-  PROFILE: 'chefSync_profile',
-  PANTRY: 'chefSync_pantryStock',
-  PLAN: 'chefSync_weeklyPlan',
-  INTRO: 'chefSync_introSeen'
+  PROFILE: 'tadkaSync_profile',
+  PANTRY: 'tadkaSync_pantryStock',
+  PLAN: 'tadkaSync_weeklyPlan',
+  INTRO: 'tadkaSync_introSeen'
 };
 
 export const INITIAL_DISHES: Dish[] = [

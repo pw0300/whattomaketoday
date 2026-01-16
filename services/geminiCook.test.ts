@@ -6,6 +6,11 @@ import { DayPlan } from '../types';
 // Mock global fetch
 global.fetch = vi.fn();
 
+// Mock retryWithBackoff to run immediately
+vi.mock('../utils/asyncUtils', () => ({
+    retryWithBackoff: vi.fn((fn) => fn())
+}));
+
 describe('geminiService - Cook Instructions', () => {
     beforeEach(() => {
         vi.clearAllMocks();

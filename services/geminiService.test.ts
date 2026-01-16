@@ -5,6 +5,11 @@ import { generateNewDishes } from './geminiService';
 // Mock global fetch
 global.fetch = vi.fn();
 
+// Mock retryWithBackoff to run immediately
+vi.mock('../utils/asyncUtils', () => ({
+    retryWithBackoff: vi.fn((fn) => fn())
+}));
+
 describe('geminiService', () => {
     beforeEach(() => {
         vi.clearAllMocks();

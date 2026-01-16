@@ -18,9 +18,10 @@ describe('App', () => {
     it('renders without crashing', () => {
         // Basic render test
         // Note: We might need to wrap in Context providers if added later
+        localStorage.setItem('intro_seen', 'true');
         render(<App />);
         // Check for Onboarding element or loading state
         // Since local storage is empty in test env, it should show Onboarding
-        expect(screen.getByText(/Kitchen System Setup/i)).toBeDefined();
+        expect(screen.getByText(/Confirm & Next/i)).toBeDefined();
     });
 });

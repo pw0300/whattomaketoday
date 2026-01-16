@@ -22,8 +22,11 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method Not Allowed' });
     }
 
-    const { prompt, schema, modelName } = req.body;
-    const apiKey = process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    const { prompt, contents, schema, modelName } = req.body;
+
+    // STRICT SECURITY: Only use server-side keys. 
+    // Do not allow VITE_ prefixed keys to be used here to encourage separation.
+    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
 
     if (!apiKey) {
         return res.status(500).json({ error: 'Server misconfiguration: Missing API Key' });
@@ -32,14 +35,17 @@ export default async function handler(req, res) {
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({
-            model: modelName || "gemini-2.5-flash-preview",
+            model: modelName || "gemini-2.0-flash", // Updated default to latest stable
             generationConfig: {
                 responseMimeType: "application/json",
                 responseSchema: schema
             }
         });
 
-        const result = await model.generateContent(prompt);
+        // specific support for 'contents' (multimodal) or 'prompt' (text only)
+        const input = contents ? { contents } : prompt;
+
+        const result = await model.generateContent(input);
         const response = await result.response;
         let text = response.text();
 
@@ -55,4 +61,3 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: 'Failed to generate content', details: error.message });
     }
 }
-```

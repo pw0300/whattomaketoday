@@ -3,6 +3,7 @@ import { Dish, DayPlan, VibeMode, UserProfile } from '../types';
 import { DAYS_OF_WEEK } from '../constants';
 import { generateCookAudio, generateCookInstructions } from '../services/geminiService';
 import { RefreshCw, Zap, Coffee, RotateCw, Send, ArrowDownCircle, Eraser, Lock, Unlock, Sparkles, Link as LinkIcon, CheckSquare, MessageCircle, Mic, Play, Loader2 } from 'lucide-react';
+import DelegateModal from './DelegateModal';
 
 interface Props {
   approvedDishes: Dish[];
@@ -19,6 +20,7 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
   const [regenerating, setRegenerating] = useState(false);
   const [swappingSlot, setSwappingSlot] = useState<{ dayIndex: number, type: 'lunch' | 'dinner' } | null>(null);
   const [showLinkCopied, setShowLinkCopied] = useState(false);
+  const [showDelegateModal, setShowDelegateModal] = useState(false);
 
   // Cook Bridge State
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
@@ -27,7 +29,7 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
 
   // Load from LocalStorage on mount
   useEffect(() => {
-    const savedPlan = localStorage.getItem('chefSync_weeklyPlan');
+    const savedPlan = localStorage.getItem('tadkaSync_weeklyPlan');
     if (savedPlan) {
       try {
         const parsed = JSON.parse(savedPlan);
@@ -47,7 +49,7 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
 
   useEffect(() => {
     if (weekPlan.length > 0) {
-      localStorage.setItem('chefSync_weeklyPlan', JSON.stringify(weekPlan));
+      localStorage.setItem('tadkaSync_weeklyPlan', JSON.stringify(weekPlan));
     }
   }, [weekPlan]);
 
@@ -318,13 +320,13 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
       {/* Header */}
       <div className="p-4 bg-paper border-b-2 border-ink sticky top-0 z-20">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-black uppercase text-ink">Run of Show</h2>
+          <h2 className="text-2xl font-black uppercase text-ink">Weekly Plan</h2>
           <div className="flex items-center gap-2">
             <button
               onClick={handleClearWeek}
               className="text-[10px] font-bold uppercase text-red-500 hover:text-red-700 flex items-center gap-1 border border-red-200 bg-red-50 px-2 py-1"
             >
-              <Eraser size={12} /> Clear Board
+              <Eraser size={12} /> Clear Plan
             </button>
           </div>
         </div>
@@ -338,8 +340,8 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
           <div className="flex items-center gap-2">
             <Sparkles size={18} className={regenerating ? 'animate-spin' : ''} />
             <div className="text-left">
-              <span className="block font-black uppercase text-xs">Kitchen Autopilot</span>
-              <span className="block text-[10px] opacity-75">Auto-Fill next 3 days based on pantry</span>
+              <span className="block font-black uppercase text-xs">Auto-Fill</span>
+              <span className="block text-[10px] opacity-75">Fill next 3 days from pantry</span>
             </div>
           </div>
           <div className="bg-brand-500 text-white px-2 py-1 text-[10px] font-bold uppercase">Run</div>
@@ -364,7 +366,7 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
         {regenerating && weekPlan.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-ink animate-pulse">
             <RefreshCw className="w-12 h-12 animate-spin mb-4" strokeWidth={1.5} />
-            <p className="font-mono text-sm uppercase tracking-widest">Optimizing Rotation...</p>
+            <p className="font-mono text-sm uppercase tracking-widest">Planning meals...</p>
           </div>
         ) : (
           weekPlan.map((dayPlan, idx) => (
@@ -399,9 +401,9 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
                   <div className="flex-1 p-3 min-w-0">
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="font-mono text-[10px] text-gray-400 uppercase mb-1">AM SERVICE</p>
+                        <p className="font-mono text-[10px] text-gray-400 uppercase mb-1">LUNCH</p>
                         <p className="font-bold text-sm text-ink truncate pr-2 leading-tight">
-                          {dayPlan.lunch?.name || "86'd (OUT)"}
+                          {dayPlan.lunch?.name || "Skipped"}
                         </p>
                         <p className="font-serif italic text-xs text-gray-500">{dayPlan.lunch?.localName}</p>
                       </div>
@@ -438,9 +440,9 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
                   <div className="flex-1 p-3 min-w-0">
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="font-mono text-[10px] text-gray-400 uppercase mb-1">PM SERVICE</p>
+                        <p className="font-mono text-[10px] text-gray-400 uppercase mb-1">DINNER</p>
                         <p className="font-bold text-sm text-ink truncate pr-2 leading-tight">
-                          {dayPlan.dinner?.name || 'STAFF MEAL / LEFTOVERS'}
+                          {dayPlan.dinner?.name || 'Not planned yet'}
                         </p>
                         <p className="font-serif italic text-xs text-gray-500">{dayPlan.dinner?.localName}</p>
                       </div>
@@ -463,42 +465,42 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
       </div>
 
       {/* FABs */}
-      <div className="absolute bottom-24 right-6 flex flex-col gap-4 items-end">
-        {/* COOK BRIDGE */}
-        <div className="flex gap-2">
+      <div className="absolute bottom-24 right-6 flex flex-col gap-4 items-end pointer-events-none">
+        <div className="flex flex-col gap-4 pointer-events-auto">
+          {/* DELEGATE BUTTON */}
           <button
-            onClick={handleAudioBriefing}
-            className={`bg-white text-ink w-12 h-12 flex items-center justify-center border-2 border-ink shadow-hard hover:translate-y-1 hover:shadow-none transition-all rounded-full ${isGeneratingAudio ? 'animate-pulse' : ''}`}
-            title="Play Audio Instructions"
+            onClick={() => setShowDelegateModal(true)}
+            className="bg-brand-500 text-white w-14 h-14 flex items-center justify-center border-2 border-ink shadow-hard hover:translate-y-1 hover:shadow-none transition-all rounded-full"
+            title="Delegate to Cook"
           >
-            {isGeneratingAudio ? <Loader2 size={24} className="animate-spin" /> : (audioUrl ? <Play size={24} className="fill-ink" /> : <Mic size={24} />)}
+            <Mic size={24} />
           </button>
+
+          {/* SHARELINK BUTTON */}
           <button
-            onClick={handleWhatsAppShare}
-            disabled={isGeneratingText}
-            className="bg-green-500 text-white w-12 h-12 flex items-center justify-center border-2 border-ink shadow-hard hover:translate-y-1 hover:shadow-none transition-all rounded-full"
-            title="Send to WhatsApp"
+            onClick={handleCopyLink}
+            className="bg-white text-ink px-5 py-3 border-2 border-ink shadow-hard hover:translate-y-1 hover:shadow-none transition-all active:bg-gray-100 flex items-center gap-2 font-bold uppercase rounded-full"
           >
-            {isGeneratingText ? <Loader2 size={24} className="animate-spin" /> : <MessageCircle size={24} />}
+            {showLinkCopied ? <CheckSquare size={18} /> : <LinkIcon size={18} />}
+            {showLinkCopied ? "Copied" : "Link"}
+          </button>
+
+          <button
+            onClick={onPublish}
+            className="bg-ink text-white px-5 py-3 border-2 border-ink shadow-hard hover:translate-y-1 hover:shadow-none transition-all active:bg-gray-800 flex items-center gap-2 font-bold uppercase rounded-full"
+          >
+            <Send size={18} /> Shop Ingredients
           </button>
         </div>
-
-        {/* SHARE LINK BUTTON (Matches App.tsx behavior now) */}
-        <button
-          onClick={handleCopyLink}
-          className="bg-white text-ink px-5 py-3 border-2 border-ink shadow-hard hover:translate-y-1 hover:shadow-none transition-all active:bg-gray-100 flex items-center gap-2 font-bold uppercase rounded-full"
-        >
-          {showLinkCopied ? <CheckSquare size={18} /> : <LinkIcon size={18} />}
-          {showLinkCopied ? "Link Copied!" : "Kitchen Link"}
-        </button>
-
-        <button
-          onClick={onPublish}
-          className="bg-ink text-white px-5 py-3 border-2 border-ink shadow-hard hover:translate-y-1 hover:shadow-none transition-all active:bg-gray-800 flex items-center gap-2 font-bold uppercase rounded-full"
-        >
-          <Send size={18} /> Transmit Order
-        </button>
       </div>
+
+      {showDelegateModal && (
+        <DelegateModal
+          plan={weekPlan}
+          userProfile={userProfile}
+          onClose={() => setShowDelegateModal(false)}
+        />
+      )}
     </div>
   );
 };

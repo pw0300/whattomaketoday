@@ -121,8 +121,12 @@ const buildConstraintPrompt = (profile: UserProfile): string => {
 
 // --- SECURE PROXY IMPLEMENTATION ---
 
+import { retryWithBackoff } from '../utils/asyncUtils';
+
+// ... (imports)
+
 const secureGenerate = async (prompt: any, schema: any, modelName: string = "gemini-2.0-flash") => {
-  try {
+  return retryWithBackoff(async () => {
     const body: any = { schema, modelName };
 
     // Support simple string prompts or complex content objects
@@ -141,13 +145,10 @@ const secureGenerate = async (prompt: any, schema: any, modelName: string = "gem
     if (response.ok) {
       return await response.json();
     } else {
-      console.error("Proxy Error:", response.statusText);
-      return null;
+      // Throwing here triggers the retry
+      throw new Error(`Proxy Error: ${response.statusText} (${response.status})`);
     }
-  } catch (error) {
-    console.error("Secure Generate Error:", error);
-    return null;
-  }
+  }, 3, 1000); // 3 retries, start at 1s
 };
 
 export const generateNewDishes = async (
@@ -183,8 +184,10 @@ export const generateNewDishes = async (
       .map((d: any) => ({
         ...d,
         id: crypto.randomUUID(),
+        image: `https://picsum.photos/400/400?random=${Math.floor(Math.random() * 1000)}`,
         ingredients: [],
         instructions: [],
+        allergens: [],
         nutrition: { calories: 0, protein: 0, carbs: 0, fat: 0 },
         isStaple: false
       }));
@@ -198,6 +201,48 @@ export const generateNewDishes = async (
   }
 };
 
+// Progressive loading - shows dishes as they arrive
+export const generateNewDishesProgressive = async (
+  count: number,
+  userProfile: UserProfile,
+  onDishReady: (dish: Dish) => void,
+  context: VibeMode = 'Explorer'
+): Promise<void> => {
+  const seeds = userProfile.likedDishes?.join(', ') || '';
+  const basePrompt = `Generate 1 recipe. Mode: ${context}. ${buildConstraintPrompt(userProfile)}. 
+    ${seeds ? `User likes: ${seeds}. Suggest something similar but unique.` : ''}
+    Return JSON.`;
+
+  const tasks = Array.from({ length: count }).map(async () => {
+    try {
+      const result = await secureGenerate(basePrompt, LIGHT_DISH_SCHEMA, 'gemini-2.0-flash');
+      if (result) {
+        const dish: Dish = {
+          ...result,
+          id: crypto.randomUUID(),
+          image: `https://picsum.photos/400/400?random=${Math.floor(Math.random() * 1000)}`,
+          ingredients: [],
+          instructions: [],
+          allergens: [],
+          nutrition: { calories: 0, protein: 0, carbs: 0, fat: 0 },
+          isStaple: false
+        };
+        onDishReady(dish);
+        return dish;
+      }
+    } catch (e) {
+      console.error("Progressive Gen Error:", e);
+    }
+    return null;
+  });
+
+  const results = await Promise.allSettled(tasks);
+  const dishes = results
+    .filter(r => r.status === 'fulfilled' && r.value)
+    .map(r => (r as PromiseFulfilledResult<Dish>).value);
+
+  if (dishes.length > 0) cacheGeneratedDishes(dishes);
+};
 
 export const enrichDishDetails = async (dish: Dish): Promise<Dish> => {
   try {
@@ -268,7 +313,7 @@ export const analyzeAndGenerateDish = async (
   return null;
 };
 
-export const generateCookInstructions = async (plan: DayPlan[]): Promise<string | null> => {
+export const generateCookInstructions = async (plan: DayPlan[], userProfile?: UserProfile): Promise<string | null> => {
   try {
     const relevantDays = plan.filter(d => d.lunch || d.dinner);
     if (relevantDays.length === 0) return null;
@@ -280,15 +325,21 @@ export const generateCookInstructions = async (plan: DayPlan[]): Promise<string 
       return dayStr;
     }).join('\n');
 
+    const constraints = userProfile ? buildConstraintPrompt(userProfile) : '';
+    const safetyWarning = constraints ? `IMPORTANT SAFETY CONTEXT (Tell the Cook): ${constraints}` : '';
+
     const prompt = `Act as a strict but polite Indian home manager giving instructions to a domestic cook (Maharaj/Cook). 
     Translate this weekly menu into clear HINDI (using English script/Hinglish) instructions.
     
     Menu:
     ${menuSummary}
 
+    ${safetyWarning}
+
     Format as a WhatsApp message:
     - Use rough Hindi/Hinglish (e.g., "Kal lunch me Rajma Chawal banana hai").
     - Focus on PREP (e.g., "Raat ko Rajma bhigo dena").
+    - IF there are safety/dietary restrictions mentioned above, YOU MUST include a specific warning line in Hindi (e.g., "Madam ko peanuts allergy hai, bilkul mat dalna").
     - Use Emojis.
     - Keep it concise.
     - Format with *Bold* headers for days.

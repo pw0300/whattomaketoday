@@ -22,7 +22,7 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
 
   // Load custom items from local storage on mount
   useEffect(() => {
-    const saved = localStorage.getItem('chefSync_customGrocery');
+    const saved = localStorage.getItem('tadkaSync_customGrocery');
     if (saved) {
       setCustomItems(JSON.parse(saved));
     }
@@ -30,7 +30,7 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
 
   // Save custom items when changed
   useEffect(() => {
-    localStorage.setItem('chefSync_customGrocery', JSON.stringify(customItems));
+    localStorage.setItem('tadkaSync_customGrocery', JSON.stringify(customItems));
   }, [customItems]);
 
   const checkStock = (needed: string) => {
@@ -104,7 +104,7 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
   // Group ingredients by category for display
   const categorizedIngredients = useMemo<Record<string, GroceryItem[]>>(() => {
     const agg: Record<string, GroceryItem[]> = {
-      Produce: [], Protein: [], Dairy: [], Pantry: [], Spices: [], Misc: []
+      Produce: [], Protein: [], Dairy: [], Pantry: [], Spices: [], Custom: []
     };
 
     const processIngredient = (ing: Ingredient, sourceDish: string, servings: number) => {
@@ -124,7 +124,7 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
 
     // Add custom items to "Misc"
     customItems.forEach(item => {
-      agg['Misc'].push({ name: item, quantity: '1 unit', category: 'Pantry', source: 'Manual Entry' });
+      agg['Custom'].push({ name: item, quantity: '1 unit', category: 'Pantry', source: 'Manual Entry' });
     });
 
     return agg;
@@ -143,14 +143,14 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
       <div className="p-4 border-b-2 border-ink flex justify-between items-center sticky top-0 bg-paper z-10">
         <div>
           <h2 className="text-2xl font-black uppercase text-ink">Shopping List</h2>
-          <p className="font-mono text-xs text-gray-600">Procurement</p>
+          <p className="font-mono text-xs text-gray-600">List</p>
         </div>
         <button
           onClick={onPrintTicket}
           className="bg-white text-ink border-2 border-ink px-4 py-2 font-bold uppercase shadow-hard hover:shadow-none hover:translate-y-1 transition flex items-center gap-2 text-xs"
         >
           <Share2 size={16} />
-          Export
+          Share
         </button>
       </div>
 
@@ -203,7 +203,7 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
               <div className="space-y-1">
                 {sortedList.map((item, idx) => {
                   const isChecked = checkStock(item.name);
-                  const isCustom = category === 'Misc';
+                  const isCustom = category === 'Custom';
                   const key = `${item.name}-${idx}`; // Unique key since we now allow dupes
 
                   return (
