@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { UserProfile, Macros } from '../types';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Step Components
 import AllergenStep from './onboarding/AllergenStep';
@@ -11,8 +12,11 @@ interface Props {
   onComplete: (profile: UserProfile) => void;
 }
 
+const TOTAL_STEPS = 4;
+
 const Onboarding: React.FC<Props> = ({ onComplete }) => {
   const [step, setStep] = useState(1);
+  const [direction, setDirection] = useState(1); // 1 = right, -1 = left
 
   const [profile, setProfile] = useState<UserProfile>({
     name: 'Home Chef',
@@ -76,6 +80,16 @@ const Onboarding: React.FC<Props> = ({ onComplete }) => {
     }
   }, [profile.biometrics]);
 
+  const handleNext = () => {
+    setDirection(1);
+    setStep(prev => prev + 1);
+  };
+
+  const handleBack = () => {
+    setDirection(-1);
+    setStep(prev => prev - 1);
+  };
+
   const handleFinish = () => {
     const finalProfile = {
       ...profile,
@@ -85,46 +99,94 @@ const Onboarding: React.FC<Props> = ({ onComplete }) => {
     onComplete(finalProfile);
   };
 
+  const variants = {
+    enter: (dir: number) => ({
+      x: dir > 0 ? 50 : -50,
+      opacity: 0
+    }),
+    center: {
+      x: 0,
+      opacity: 1
+    },
+    exit: (dir: number) => ({
+      x: dir < 0 ? 50 : -50,
+      opacity: 0
+    })
+  };
+
   return (
-    <div className="flex flex-col h-full p-6 bg-paper items-center justify-center text-ink">
-      <div className="w-full max-w-md">
-        <h1 className="text-4xl font-black text-ink mb-1 uppercase tracking-tight">TadkaSync</h1>
-        <p className="font-mono text-sm text-gray-500 mb-8 border-b-2 border-ink pb-4">Let's get setup</p>
+    <div className="flex flex-col min-h-screen bg-[#F8F5F2] items-center justify-center text-[#1A4D2E] p-6 font-sans">
 
-        {step === 1 && (
-          <AllergenStep
-            profile={profile}
-            onProfileChange={setProfile}
-            onNext={() => setStep(2)}
+      {/* Progress Header */}
+      <div className="w-full max-w-xl mb-10 flex flex-col gap-2">
+        <div className="flex justify-between text-xs font-mono uppercase tracking-widest opacity-60">
+          <span>Progress</span>
+          <span>{step} / {TOTAL_STEPS}</span>
+        </div>
+        <div className="h-1 w-full bg-[#1A4D2E]/10 rounded-full overflow-hidden">
+          <motion.div
+            className="h-full bg-[#F9C74F]"
+            initial={{ width: 0 }}
+            animate={{ width: `${(step / TOTAL_STEPS) * 100}%` }}
+            transition={{ ease: "circOut", duration: 0.5 }}
           />
-        )}
+        </div>
+      </div>
 
-        {step === 2 && (
-          <HealthStep
-            profile={profile}
-            onProfileChange={setProfile}
-            onNext={() => setStep(3)}
-            onBack={() => setStep(1)}
-          />
-        )}
+      {/* Main Card */}
+      <div className="w-full max-w-xl bg-white p-8 md:p-12 rounded-[2rem] shadow-xl border border-[#1A4D2E]/5 relative overflow-hidden min-h-[500px] flex flex-col">
+        {/* Decorative Background Blob */}
+        <div className="absolute -top-32 -right-32 w-64 h-64 bg-[#1A4D2E]/5 rounded-full blur-3xl pointer-events-none" />
 
-        {step === 3 && (
-          <CuisineStep
-            profile={profile}
-            onProfileChange={setProfile}
-            onNext={() => setStep(4)}
-            onBack={() => setStep(2)}
-          />
-        )}
+        <AnimatePresence mode="wait" custom={direction}>
+          <motion.div
+            key={step}
+            custom={direction}
+            variants={variants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.3 }}
+            className="flex-1 flex flex-col"
+          >
+            {step === 1 && (
+              <AllergenStep
+                profile={profile}
+                onProfileChange={setProfile}
+                onNext={handleNext}
+              />
+            )}
+            {step === 2 && (
+              <HealthStep
+                profile={profile}
+                onProfileChange={setProfile}
+                onNext={handleNext}
+                onBack={handleBack}
+              />
+            )}
+            {step === 3 && (
+              <CuisineStep
+                profile={profile}
+                onProfileChange={setProfile}
+                onNext={handleNext}
+                onBack={handleBack}
+              />
+            )}
+            {step === 4 && (
+              <BiometricStep
+                profile={profile}
+                onProfileChange={setProfile}
+                onFinish={handleFinish}
+                onBack={handleBack}
+              />
+            )}
+          </motion.div>
+        </AnimatePresence>
+      </div>
 
-        {step === 4 && (
-          <BiometricStep
-            profile={profile}
-            onProfileChange={setProfile}
-            onFinish={handleFinish}
-            onBack={() => setStep(3)}
-          />
-        )}
+      {/* Footer Note */}
+      <div className="mt-8 text-center opacity-40 font-mono text-[10px] uppercase tracking-widest">
+        TadkaSync • Intelligent Kitchen OS
       </div>
     </div>
   );

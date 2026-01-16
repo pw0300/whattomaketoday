@@ -1,19 +1,20 @@
 import React, { useState } from 'react';
 import { enrichDishDetails } from '../services/geminiService';
-import { Dish } from '../types';
+import { Dish, UserProfile } from '../types';
 import { getScaledQuantity } from '../utils/quantityUtils';
-import { Save, X, ChefHat, ScrollText, Users, Play, Lock } from 'lucide-react';
+import { Save, X, ChefHat, ScrollText, Users, Play, Lock, Sparkles, Loader2 } from 'lucide-react';
 import ChefModeView from './dish/ChefModeView';
 
 interface Props {
     dish: Dish;
+    userProfile?: UserProfile;
     onClose: () => void;
     onSave: (dishId: string, notes: string, servings: number) => void;
     onCook?: (dish: Dish, usedIngredients: string[]) => void;
     onUpdate?: (dish: Dish) => void;
 }
 
-const DishModal: React.FC<Props> = ({ dish, onClose, onSave, onCook, onUpdate }) => {
+const DishModal: React.FC<Props> = ({ dish, userProfile, onClose, onSave, onCook, onUpdate }) => {
     const [notes, setNotes] = useState(dish.userNotes || '');
     const [tab, setTab] = useState<'recipe' | 'notes'>('recipe');
     const [servings, setServings] = useState(dish.servings || 1);
@@ -144,21 +145,35 @@ const DishModal: React.FC<Props> = ({ dish, onClose, onSave, onCook, onUpdate })
                                         )}
                                     </ol>
                                 ) : (
-                                    <div className="text-center py-4 border-2 border-dashed border-gray-300 bg-gray-50 p-4">
-                                        <Lock className="mx-auto text-gray-400 mb-2" size={24} />
-                                        <p className="font-mono text-xs text-gray-400 uppercase mb-2">Full Recipe Not Loaded</p>
+                                    <div className="mt-8 bg-gradient-to-br from-brand-50 to-brand-100/50 border border-brand-200 p-6 rounded-xl text-center relative overflow-hidden group">
+                                        {/* Background Decoration */}
+                                        <ChefHat className="absolute top-[-20%] right-[-10%] text-brand-500/5 w-32 h-32 rotate-12 group-hover:rotate-0 transition-transform duration-700" />
+
+                                        <h4 className="font-mono text-xs font-black uppercase text-brand-800 mb-2">Want to cook this?</h4>
+                                        <p className="text-xs text-brand-700 mb-4 px-4 leading-relaxed">
+                                            Unlock the full step-by-step guide, precise measurements, and chef's secrets.
+                                        </p>
+
                                         {onUpdate && (
                                             <button
                                                 onClick={async () => {
                                                     setIsEnriching(true);
-                                                    const richDish = await enrichDishDetails(dish);
+                                                    const richDish = await enrichDishDetails(dish, userProfile);
                                                     onUpdate(richDish);
                                                     setIsEnriching(false);
                                                 }}
                                                 disabled={isEnriching}
-                                                className="bg-ink text-white px-4 py-2 font-bold uppercase text-xs rounded-md shadow-hard-sm active:translate-y-px active:shadow-none"
+                                                className="w-full bg-brand-500 hover:bg-brand-600 text-white py-3 px-4 font-black uppercase text-xs tracking-wider rounded-lg shadow-hard-sm hover:shadow-hard active:translate-y-px active:shadow-none transition-all flex items-center justify-center gap-2"
                                             >
-                                                {isEnriching ? "Loading Recipe..." : "Load Full Recipe"}
+                                                {isEnriching ? (
+                                                    <>
+                                                        <Loader2 className="animate-spin" size={14} /> Chef is writing...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Sparkles size={14} /> Generate Full Recipe
+                                                    </>
+                                                )}
                                             </button>
                                         )}
                                     </div>

@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, useMotionValue, useTransform, PanInfo, AnimatePresence } from 'framer-motion';
 import { Dish, SwipeDirection, ImageSize, UserProfile } from '../types';
@@ -118,187 +117,250 @@ const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onS
     };
 
     return (
-        <div className="relative w-full h-full flex flex-col items-center overflow-hidden bg-paper">
+        <div className="relative w-full h-full flex flex-col items-center overflow-hidden">
 
-            {/* Intelligence Status Bar */}
-            {fetchingMore && (
-                <div className="absolute top-0 left-0 w-full h-1 bg-gray-200 z-50 overflow-hidden">
-                    <motion.div
-                        className="h-full bg-brand-500"
-                        initial={{ width: 0 }}
-                        animate={{ width: "100%" }}
-                        transition={{ duration: 5, repeat: Infinity, ease: "linear" }}
-                    />
+            {/* Premium Header */}
+            <div className="w-full px-6 pt-4 pb-2 z-10 flex justify-between items-center bg-gradient-to-b from-background via-background to-transparent">
+                <div>
+                    <h2 className="text-3xl font-display font-black text-ink tracking-tight leading-none bg-clip-text text-transparent bg-gradient-to-r from-ink to-ink-light">Discover</h2>
+                    <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] text-ink-light font-medium tracking-wide flex items-center gap-1.5 uppercase">
+                            {fetchingMore ? <Loader2 size={8} className="animate-spin text-brand-500" /> : <div className="w-1.5 h-1.5 rounded-full bg-brand-500/50" />}
+                            {fetchingMore ? 'AI Agent Curating...' : 'Your Cookbook'}
+                        </span>
+                    </div>
+                </div>
+                <div className="flex bg-white p-1 rounded-full shadow-sm border border-gray-100">
+                    <button onClick={() => setViewMode('deck')} className={`p-2 rounded-full transition-all duration-300 ${viewMode === 'deck' ? 'bg-ink text-white shadow-md transform scale-105' : 'text-ink-light hover:bg-gray-50'}`}><Layers size={16} /></button>
+                    <button onClick={() => setViewMode('registry')} className={`p-2 rounded-full transition-all duration-300 ${viewMode === 'registry' ? 'bg-ink text-white shadow-md transform scale-105' : 'text-ink-light hover:bg-gray-50'}`}><Grid3X3 size={16} /></button>
+                </div>
+            </div>
+
+            {/* Selection Progress (Minimal) */}
+            {viewMode === 'deck' && (
+                <div className="w-full px-6 mb-4">
+                    <div className="flex justify-between items-end mb-1.5">
+                        <span className="text-[10px] font-bold text-ink-light uppercase tracking-wider">Daily Goal</span>
+                        <span className="text-[10px] font-bold text-ink">{approvedCount}/{goal}</span>
+                    </div>
+                    <div className="w-full h-1 bg-gray-100 rounded-full overflow-hidden">
+                        <motion.div
+                            layout
+                            className="h-full bg-gradient-brand shadow-[0_0_10px_rgba(249,115,22,0.4)]"
+                            initial={{ width: 0 }}
+                            animate={{ width: `${Math.min((approvedCount / goal) * 100, 100)}%` }}
+                        />
+                    </div>
                 </div>
             )}
 
-            {/* Header */}
-            <div className="w-full px-4 pt-4 pb-2 z-10 border-b-2 border-ink bg-paper">
-                <div className="flex justify-between items-center mb-4">
-                    <div>
-                        <h2 className="text-3xl font-black text-ink uppercase tracking-tight leading-none">Discover</h2>
-                        <div className="flex items-center gap-2 mt-1">
-                            <span className="font-mono text-[9px] text-gray-500 uppercase font-black">
-                                {fetchingMore ? 'Finding Dishes' : 'Cookbook'}
-                            </span>
-                            {fetchingMore && <Loader2 className="animate-spin text-brand-500" size={10} />}
-                        </div>
-                    </div>
-                    <div className="flex bg-gray-200 p-1 rounded-lg border-2 border-transparent">
-                        <button onClick={() => setViewMode('deck')} className={`p-2 rounded transition-all ${viewMode === 'deck' ? 'bg-white shadow-sm text-ink' : 'text-gray-500'}`}><Layers size={18} /></button>
-                        <button onClick={() => setViewMode('registry')} className={`p-2 rounded transition-all ${viewMode === 'registry' ? 'bg-white shadow-sm text-ink' : 'text-gray-500'}`}><Grid3X3 size={18} /></button>
-                    </div>
-                </div>
-
-                {viewMode === 'deck' ? (
-                    <div className="w-full">
-                        <div className="flex justify-between items-end mb-1">
-                            <span className="font-mono text-[10px] font-bold text-ink uppercase">Selection Goal</span>
-                            <span className="font-mono text-[10px] font-bold text-ink">{approvedCount}/{goal}</span>
-                        </div>
-                        <div className="w-full h-1.5 bg-white border border-ink rounded-full overflow-hidden">
-                            <div className="h-full bg-ink transition-all duration-300" style={{ width: `${Math.min((approvedCount / goal) * 100, 100)}%` }} />
-                        </div>
-                    </div>
-                ) : (
-                    <div className="relative">
-                        <Search size={14} className="absolute left-3 top-2.5 text-gray-400" />
-                        <input type="text" placeholder="Search approved..." className="w-full pl-9 pr-2 py-2 text-xs font-mono border-2 border-ink focus:outline-none focus:bg-yellow-50 rounded-md" value={registrySearch} onChange={(e) => setRegistrySearch(e.target.value)} />
-                    </div>
-                )}
-            </div>
-
             {/* Main Area */}
             {viewMode === 'deck' ? (
-                <div className="relative flex-1 w-full flex items-center justify-center p-4">
-                    {isDeckEmpty ? (
-                        /* GHOST SOURCING CONSOLE */
-                        <div className="w-full max-w-xs aspect-[3/4.5] bg-ink text-white border-4 border-ink shadow-[12px_12px_0px_0px_rgba(0,0,0,0.1)] p-8 flex flex-col justify-center relative overflow-hidden rounded-2xl">
-                            <div className="absolute top-4 left-4 font-mono text-[8px] uppercase tracking-widest opacity-40">Finding new recipes</div>
-                            <div className="mb-8">
-                                {React.createElement(LOADING_STEPS[loadingStep].icon, { className: "w-12 h-12 text-brand-500 mb-4 animate-pulse" })}
-                                <h3 className="text-2xl font-black uppercase leading-none tracking-tighter">Finding Ideas</h3>
-                                <p className="font-mono text-[10px] text-brand-500 uppercase mt-2">{LOADING_STEPS[loadingStep].label}</p>
-                            </div>
-
-                            <div className="space-y-2 border-l-2 border-brand-500/20 pl-4 py-4">
-                                {LOADING_STEPS.map((step, i) => (
-                                    <div key={i} className={`flex items-center gap-2 transition-opacity duration-500 ${i === loadingStep ? 'opacity-100' : 'opacity-20'}`}>
-                                        <div className={`w-1.5 h-1.5 rounded-full ${i === loadingStep ? 'bg-brand-500' : 'bg-white'}`} />
-                                        <span className="font-mono text-[8px] uppercase">{step.label}</span>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <div className="mt-8 flex items-center gap-3">
-                                <Loader2 className="animate-spin text-brand-500" size={16} />
-                                <span className="font-mono text-[9px] uppercase font-bold text-white/40">Curating for you...</span>
-                            </div>
-                        </div>
-                    ) : (
-                        /* THE CARD DECK */
-                        <div className="relative w-full max-w-xs aspect-[3/4.5]">
-                            <div className="absolute inset-0 bg-white border-2 border-gray-300 shadow-sm translate-x-2 translate-y-2 -z-10 rounded-2xl" />
+                <div className="relative flex-1 w-full flex items-center justify-center p-4 min-h-[400px]">
+                    <AnimatePresence mode="wait">
+                        {isDeckEmpty ? (
+                            /* PREMIUM SOURCING CONSOLE */
                             <motion.div
-                                className="w-full h-full bg-white border-2 border-ink shadow-hard flex flex-col cursor-grab active:cursor-grabbing relative overflow-hidden rounded-2xl"
-                                style={{ x, y, rotate, borderColor: x.get() > 0 ? borderRight : x.get() < 0 ? borderLeft : borderUp }}
-                                drag
-                                dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
-                                onDragEnd={handleDragEnd}
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 1.05 }}
+                                key="console"
+                                className="w-full max-w-xs aspect-[3/4.2] bg-ink text-white shadow-2xl p-8 flex flex-col justify-between relative overflow-hidden rounded-[32px]"
                             >
-                                {/* Card Header */}
-                                <div className="bg-ink text-white py-3 px-4 flex justify-between items-center relative z-20">
-                                    <span className="font-mono text-[10px] uppercase font-black tracking-widest">{currentDish.type}</span>
-                                    <div className="flex items-center gap-2">
-                                        <span className="font-mono text-[10px] font-black opacity-50 uppercase mr-2">{currentDish.cuisine}</span>
-                                        <button
-                                            onClick={(e) => { e.stopPropagation(); onModify(currentDish); }}
-                                            className="bg-white/10 hover:bg-white/20 p-1.5 rounded-full transition-colors backdrop-blur-sm"
-                                            title="View Details"
-                                        >
-                                            <Info size={14} className="text-white" />
-                                        </button>
+                                {/* Ambient Background Animation */}
+                                <div className="absolute inset-0 z-0">
+                                    <div className="absolute top-[-50%] left-[-50%] w-[200%] h-[200%] bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-brand-600/30 via-ink to-ink animate-pulse-slow" />
+                                </div>
+
+                                <div className="relative z-10">
+                                    <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-brand-500/80 font-bold flex items-center gap-2">
+                                        <span className="w-2 h-2 rounded-full bg-brand-500 animate-pulse" />
+                                        System Active
+                                    </span>
+                                </div>
+
+                                <div className="relative z-10 flex flex-col items-center text-center space-y-6">
+                                    <div className="bg-white/10 p-5 rounded-full backdrop-blur-md border border-white/10 shadow-float">
+                                        {React.createElement(LOADING_STEPS[loadingStep].icon, { className: "w-10 h-10 text-brand-400 drop-shadow-[0_0_15px_rgba(234,179,8,0.5)]" })}
+                                    </div>
+
+                                    <div>
+                                        <h3 className="text-3xl font-display font-medium tracking-tight text-white mb-2">
+                                            Finding
+                                            <span className="block font-bold text-transparent bg-clip-text bg-gradient-to-r from-brand-300 to-brand-500">Inspiration</span>
+                                        </h3>
+                                        <p className="font-sans text-[12px] text-white/40 tracking-wide">{LOADING_STEPS[loadingStep].label}</p>
                                     </div>
                                 </div>
 
-                                <div className="flex-1 p-6 flex flex-col">
-                                    <h3 className="text-4xl font-black leading-[0.85] mb-2 text-ink uppercase tracking-tighter">{currentDish.name}</h3>
-                                    <p className="font-serif italic text-lg text-gray-500 mb-4">{currentDish.localName}</p>
+                                <div className="relative z-10 space-y-3">
+                                    <div className="space-y-2">
+                                        <div className="w-full bg-white/10 h-1 rounded-full overflow-hidden backdrop-blur-sm">
+                                            <motion.div
+                                                className="h-full bg-brand-500"
+                                                initial={{ width: "0%" }}
+                                                animate={{ width: `${((loadingStep + 1) / LOADING_STEPS.length) * 100}%` }}
+                                                transition={{ duration: 0.5 }}
+                                            />
+                                        </div>
+                                        <div className="flex justify-between items-center text-[10px] font-medium text-white/30">
+                                            <span>AI Agent Working</span>
+                                            <span>{Math.round(((loadingStep + 1) / LOADING_STEPS.length) * 100)}%</span>
+                                        </div>
+                                    </div>
+                                    <motion.button
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        transition={{ delay: 8 }}
+                                        onClick={() => { localStorage.clear(); window.location.reload(); }}
+                                        className="w-full py-3 text-[10px] font-medium uppercase tracking-wider text-red-300 hover:text-white flex items-center justify-center gap-2 rounded-xl hover:bg-white/5 transition-colors"
+                                    >
+                                        <RotateCcw size={12} /> Restart Engine
+                                    </motion.button>
+                                </div>
+                            </motion.div>
+                        ) : (
+                            /* PREMIUM CARD DECK */
+                            <div key="deck" className="relative w-full max-w-xs aspect-[3/4.2]">
+                                {/* Shadows */}
+                                <div className="absolute inset-0 bg-gray-200/50 transform scale-95 translate-y-4 -z-10 rounded-[32px] blur-sm" />
+                                <div className="absolute inset-0 bg-gray-100/50 transform scale-90 translate-y-8 -z-20 rounded-[32px] blur-md" />
 
-                                    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border-2 text-[9px] font-black uppercase mb-4 self-start ${currentMatch >= 75 ? 'border-brand-500 bg-brand-50 text-brand-600' : 'border-gray-200 bg-gray-50 text-gray-400'}`}>
-                                        <PackageCheck size={12} />
-                                        {currentMatch}% Pantry Match
+                                <motion.div
+                                    className="w-full h-full bg-surface shadow-premium flex flex-col cursor-grab active:cursor-grabbing relative overflow-hidden rounded-[32px] border border-white/60"
+                                    style={{ x, y, rotate }}
+                                    drag
+                                    dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+                                    onDragEnd={handleDragEnd}
+                                >
+                                    {/* Card Header Image / Gradient */}
+                                    <div className="h-[45%] bg-gradient-premium relative p-6 flex flex-col justify-between group overflow-hidden">
+                                        {/* Simple decorative circle */}
+                                        <div className="absolute -top-10 -right-10 w-40 h-40 bg-brand-100 rounded-full blur-3xl opacity-60" />
+                                        <div className="absolute top-10 -left-10 w-32 h-32 bg-accent-yellow/10 rounded-full blur-3xl" />
+
+                                        <div className="flex justify-between items-start relative z-10">
+                                            <span className="px-3 py-1 bg-white/60 backdrop-blur-md rounded-full text-[10px] uppercase font-bold tracking-wider text-ink-light shadow-sm">
+                                                {currentDish.type}
+                                            </span>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); onModify(currentDish); }}
+                                                className="w-8 h-8 flex items-center justify-center bg-white rounded-full shadow-sm hover:scale-110 transition-transform text-ink-light"
+                                            >
+                                                <Info size={16} />
+                                            </button>
+                                        </div>
+
+                                        <div className="relative z-10 mt-auto">
+                                            <span className="text-[10px] font-bold uppercase tracking-widest text-ink/40 mb-1 block">{currentDish.cuisine}</span>
+                                            <h3 className="text-3xl font-display font-black leading-[1.0] text-ink mb-1 tracking-tight">{currentDish.name}</h3>
+                                            <p className="font-serif italic text-sm text-ink-light opacity-80">{currentDish.localName}</p>
+                                        </div>
                                     </div>
 
-                                    {currentDish.healthTags && currentDish.healthTags.length > 0 && (
-                                        <div className="flex flex-wrap gap-2 mb-6">
-                                            {currentDish.healthTags.slice(0, 3).map(tag => (
-                                                <span key={tag} className="px-2 py-1 bg-green-50 border border-green-200 text-green-700 text-[9px] font-bold uppercase rounded-md">
+                                    <div className="flex-1 p-6 flex flex-col bg-white/50 backdrop-blur-xl relative">
+                                        {/* Stats Row */}
+                                        <div className="flex items-center gap-2 mb-6 overflow-x-auto no-scrollbar pb-2">
+                                            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide border shadow-sm ${currentMatch >= 75 ? 'bg-green-50 border-green-100 text-green-700' : 'bg-gray-50 border-gray-100 text-gray-500'}`}>
+                                                <PackageCheck size={12} /> {currentMatch}% Pantry
+                                            </div>
+                                            {currentDish.healthTags?.slice(0, 2).map(tag => (
+                                                <span key={tag} className="px-3 py-1.5 bg-blue-50 border border-blue-100 text-blue-700 text-[10px] font-bold uppercase rounded-full whitespace-nowrap shadow-sm">
                                                     {tag}
                                                 </span>
                                             ))}
                                         </div>
-                                    )}
 
-                                    <p className="font-mono text-xs leading-relaxed text-gray-700 mb-8 border-l-2 border-ink/10 pl-4 py-2">
-                                        {currentDish.description}
-                                    </p>
-
-                                    {currentDish.chefAdvice && (
-                                        <div className="mt-auto bg-paper border-2 border-ink p-4 relative rounded-xl shadow-hard-sm">
-                                            <Quote size={20} className="absolute -top-3 -left-1 text-brand-500 fill-current" />
-                                            <p className="font-mono text-[9px] font-black uppercase text-ink/30 mb-1">Chef's Tip</p>
-                                            <p className="font-serif italic text-sm text-ink leading-tight font-black">"{currentDish.chefAdvice}"</p>
+                                        <div className="flex-1 overflow-y-auto no-scrollbar mask-gradient-to-b pr-2">
+                                            <p className="font-sans text-sm leading-relaxed text-ink-light/90">
+                                                {currentDish.description}
+                                            </p>
                                         </div>
-                                    )}
-                                </div>
-                            </motion.div>
-                        </div>
-                    )}
+
+                                    </div>
+                                </motion.div>
+                            </div>
+                        )}
+                    </AnimatePresence>
                 </div>
             ) : (
-                <div className="flex-1 w-full overflow-y-auto p-4 pb-20 grid grid-cols-2 gap-4">
+                <div className="flex-1 w-full overflow-y-auto p-4 content-start grid grid-cols-2 gap-3 pb-24">
+                    {/* Registry Search */}
+                    <div className="col-span-2 relative mb-2">
+                        <Search size={16} className="absolute left-4 top-3.5 text-gray-400" />
+                        <input type="text" placeholder="Search your cookbook..." className="w-full pl-11 pr-4 py-3 text-sm font-sans bg-white border border-gray-100 shadow-sm rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 transition-all font-medium" value={registrySearch} onChange={(e) => setRegistrySearch(e.target.value)} />
+                    </div>
+
                     {approvedDishes.filter(d => d.name.toLowerCase().includes(registrySearch.toLowerCase())).map(dish => (
-                        <div key={dish.id} className="bg-white border-2 border-ink shadow-hard-sm p-4 rounded-xl relative group">
-                            <span className="font-mono text-[8px] uppercase font-black bg-gray-100 px-1 py-0.5 mb-2 block w-max">{dish.type}</span>
-                            <h4 className="font-black text-xs uppercase leading-tight line-clamp-2">{dish.name}</h4>
-                            <div className="mt-4 flex gap-2">
-                                <button onClick={() => onModify(dish)} className="p-2 border border-ink hover:bg-ink hover:text-white transition rounded-md"><Edit size={12} /></button>
-                                <button onClick={() => onDelete(dish.id)} className="p-2 border border-ink hover:bg-red-500 hover:text-white transition rounded-md"><Trash2 size={12} /></button>
+                        <motion.div
+                            layout
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            key={dish.id}
+                            className="bg-white border border-gray-100 shadow-sm p-4 rounded-2xl relative group flex flex-col h-full hover:shadow-md transition-shadow"
+                        >
+                            <div className="mb-2">
+                                <span className="text-[9px] uppercase font-bold text-gray-400 tracking-wider block mb-1">{dish.type}</span>
+                                <h4 className="font-display font-bold text-sm text-ink leading-tight line-clamp-2">{dish.name}</h4>
                             </div>
-                        </div>
+                            <div className="mt-auto pt-4 flex justify-between items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={() => onModify(dish)} className="p-1.5 bg-gray-50 hover:bg-ink hover:text-white rounded-lg transition-colors"><Edit size={12} /></button>
+                                <button onClick={() => onDelete(dish.id)} className="p-1.5 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white rounded-lg transition-colors"><Trash2 size={12} /></button>
+                            </div>
+                        </motion.div>
                     ))}
                 </div>
             )}
 
-            {/* Global Controls */}
+            {/* Global Controls - Floating Glass Bar */}
             {viewMode === 'deck' && (
-                <div className="w-full px-8 pb-8 flex justify-center items-center gap-6 z-20">
-                    <button onClick={() => setShowImport(true)} className="w-12 h-12 flex items-center justify-center bg-white border-2 border-ink shadow-hard rounded-xl"><Link2 size={20} /></button>
-                    <button onClick={() => { triggerFeedback(SwipeDirection.Left); onSwipe(currentDish?.id, SwipeDirection.Left); nextCard(); }} disabled={isDeckEmpty} className="w-16 h-16 flex items-center justify-center bg-paper border-2 border-ink shadow-hard rounded-full text-red-500 disabled:opacity-30"><X size={32} strokeWidth={3} /></button>
-                    <button onClick={() => { triggerFeedback(SwipeDirection.Up); onSwipe(currentDish?.id, SwipeDirection.Up); nextCard(); }} disabled={isDeckEmpty} className="w-12 h-12 flex items-center justify-center bg-paper border-2 border-ink shadow-hard rounded-xl text-blue-500 disabled:opacity-30"><Star size={24} strokeWidth={3} /></button>
-                    <button onClick={() => { triggerFeedback(SwipeDirection.Right); onSwipe(currentDish?.id, SwipeDirection.Right); nextCard(); }} disabled={isDeckEmpty} className="w-16 h-16 flex items-center justify-center bg-ink border-2 border-ink shadow-hard rounded-full text-brand-500 disabled:opacity-30"><Heart size={32} strokeWidth={3} /></button>
+                <div className="w-full px-8 pb-6 flex justify-center items-center gap-6 z-20">
+                    <button onClick={() => setShowImport(true)} className="w-12 h-12 flex items-center justify-center bg-white text-ink-light shadow-premium rounded-full hover:scale-110 active:scale-95 transition-all"><Link2 size={20} /></button>
+
+                    <button
+                        onClick={() => { triggerFeedback(SwipeDirection.Left); onSwipe(currentDish?.id, SwipeDirection.Left); nextCard(); }}
+                        disabled={isDeckEmpty}
+                        className="w-16 h-16 flex items-center justify-center bg-white text-red-500 shadow-premium rounded-full hover:scale-110 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 border border-red-50 group"
+                    >
+                        <X size={28} strokeWidth={2.5} className="group-hover:rotate-90 transition-transform" />
+                    </button>
+
+                    <button
+                        onClick={() => { triggerFeedback(SwipeDirection.Up); onSwipe(currentDish?.id, SwipeDirection.Up); nextCard(); }}
+                        disabled={isDeckEmpty}
+                        className="w-12 h-12 flex items-center justify-center bg-white text-blue-500 shadow-premium rounded-full hover:scale-110 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 border border-blue-50"
+                    >
+                        <Star size={20} strokeWidth={2.5} fill="currentColor" className="text-blue-100" />
+                    </button>
+
+                    <button
+                        onClick={() => { triggerFeedback(SwipeDirection.Right); onSwipe(currentDish?.id, SwipeDirection.Right); nextCard(); }}
+                        disabled={isDeckEmpty}
+                        className="w-16 h-16 flex items-center justify-center bg-gradient-brand text-white shadow-lg shadow-orange-500/40 rounded-full hover:scale-110 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 disabled:shadow-none"
+                    >
+                        <Heart size={28} strokeWidth={2.5} fill="rgba(255,255,255,0.2)" />
+                    </button>
                 </div>
             )}
 
             {showImport && (
-                <div className="fixed inset-0 z-[100] bg-ink/60 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in">
-                    <div className="bg-paper w-full max-w-sm border-2 border-ink shadow-hard p-6 rounded-2xl relative">
-                        <button onClick={() => setShowImport(false)} className="absolute top-4 right-4"><X size={24} /></button>
-                        <h3 className="text-xl font-black uppercase mb-6 flex items-center gap-2"><Sparkles className="text-brand-500" /> Add Recipe</h3>
-                        <div className="flex gap-2 mb-6">
+                <div className="fixed inset-0 z-[100] bg-ink/30 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
+                    <div className="bg-surface w-full max-w-sm shadow-2xl p-6 rounded-[32px] relative border border-white/20">
+                        <button onClick={() => setShowImport(false)} className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition"><X size={16} /></button>
+                        <h3 className="text-xl font-display font-bold text-ink mb-6 flex items-center gap-2"><Sparkles className="text-brand-500 fill-brand-500" size={18} /> Add Recipe</h3>
+                        <div className="flex gap-2 mb-6 p-1 bg-gray-50 rounded-xl">
                             {(['text', 'image', 'pantry'] as ImportTab[]).map(t => (
-                                <button key={t} onClick={() => setImportTab(t)} className={`flex-1 py-2 font-mono text-[10px] font-black uppercase border-2 ${importTab === t ? 'bg-ink text-white' : 'bg-white'}`}>{t}</button>
+                                <button key={t} onClick={() => setImportTab(t)} className={`flex-1 py-2 rounded-lg font-sans text-[11px] font-bold uppercase tracking-wider transition-all ${importTab === t ? 'bg-white text-ink shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>{t}</button>
                             ))}
                         </div>
                         <textarea
                             value={inputText}
                             onChange={(e) => setInputText(e.target.value)}
-                            className="w-full h-32 border-2 border-ink p-4 font-mono text-sm focus:outline-none mb-6 rounded-lg"
+                            className="w-full h-32 bg-gray-50 border-none p-4 font-sans text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 mb-6 rounded-2xl resize-none"
                             placeholder="Describe dish or paste URL..."
                         />
-                        <button onClick={handleMagicImport} disabled={isImporting} className="w-full bg-brand-500 text-white font-black py-4 uppercase border-2 border-ink shadow-hard transition-all disabled:opacity-50 rounded-xl">
-                            {isImporting ? <Loader2 className="animate-spin mx-auto" /> : "Add Recipe"}
+                        <button onClick={handleMagicImport} disabled={isImporting} className="w-full bg-ink text-white font-bold py-4 rounded-2xl shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50">
+                            {isImporting ? <Loader2 className="animate-spin mx-auto" /> : "Add to Cookbook"}
                         </button>
                     </div>
                 </div>

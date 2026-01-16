@@ -20,6 +20,13 @@ service cloud.firestore {
          allow read, write: if isAuthenticated() && isOwner(userId);
       }
     }
+
+    // Cached Dishes (Community/Shared)
+    match /cached_dishes/{dishId} {
+      // Authenticated users can read/contribute to the cache
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+    }
     
     // Default deny
     match /{document=**} {

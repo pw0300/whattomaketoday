@@ -234,20 +234,23 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
                         </div>
                         <div className="flex gap-2 items-center">
                           {!isCustom && !isChecked && (
-                            <div className="hidden group-hover:flex gap-1">
-                              {getCommerceLinks(item.name).slice(0, 2).map(link => (
-                                <a
-                                  key={link.name}
-                                  href={link.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className={`text-[9px] font-bold uppercase px-1 py-0.5 rounded flex items-center gap-1 ${link.name === 'Blinkit' ? 'bg-yellow-400 text-black' : 'bg-purple-600 text-white'}`}
-                                  title={`Buy on ${link.name}`}
-                                >
-                                  {link.name.substr(0, 1)} <ExternalLink size={8} />
-                                </a>
-                              ))}
-                            </div>
+                            getCommerceLinks(item.name).slice(0, 2).map(link => (
+                              <a
+                                key={link.name}
+                                href={link.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={`text-[9px] font-bold uppercase px-2 py-1 rounded-md flex items-center gap-1.5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all
+                                    ${link.name === 'Blinkit' ? 'bg-[#F8CB46] text-black' :
+                                    link.name === 'Zepto' ? 'bg-[#350F9C] text-white' :
+                                      'bg-[#FC8019] text-white'}`}
+                                title={`Buy on ${link.name}`}
+                              >
+                                {/* Using text fallback for logos, but styled better */}
+                                <span className="font-black tracking-tighter">{link.name}</span>
+                                <ExternalLink size={10} className="opacity-70" />
+                              </a>
+                            ))
                           )}
                           {isCustom && (
                             <button onClick={() => removeCustom(item.name)} className="text-gray-400 hover:text-red-500">

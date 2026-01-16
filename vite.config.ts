@@ -2,10 +2,12 @@
 import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, '.', '');
   return {
+    appType: 'spa', // Fallback to index.html for SPA routing
     server: {
       port: 3000,
       host: '0.0.0.0',
@@ -22,26 +24,25 @@ export default defineConfig(({ mode }) => {
               return;
             }
 
-            const buffers = [];
+            const buffers: Buffer[] = [];
             for await (const chunk of req) {
               buffers.push(chunk);
             }
             const data = Buffer.concat(buffers).toString();
             const { prompt, contents, schema, modelName } = JSON.parse(data);
 
-            // Access environment using loadEnv logic above or process.env directly if cached
-            // Prioritize GEMINI_API_KEY (non-public)
+            // Prioritize GEMINI_API_KEY (non-public), fall back to VITE_ prefixed
             const apiKey = process.env.GEMINI_API_KEY || env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || env.VITE_GEMINI_API_KEY;
 
             if (!apiKey) {
+              console.error('[API Proxy] Missing API Key in environment');
               res.statusCode = 500;
               res.end(JSON.stringify({ error: 'Missing API Key' }));
               return;
             }
 
             try {
-              // Dynamic import to avoid build-time issues if not needed
-              const { GoogleGenerativeAI } = await import('@google/generative-ai');
+              console.log(`[API Proxy] Generating content with model: ${modelName || 'gemini-2.0-flash'}`);
               const genAI = new GoogleGenerativeAI(apiKey);
               const model = genAI.getGenerativeModel({
                 model: modelName || "gemini-2.0-flash",
@@ -60,10 +61,11 @@ export default defineConfig(({ mode }) => {
               res.setHeader('Content-Type', 'application/json');
               res.statusCode = 200;
               res.end(text);
-            } catch (e) {
-              console.error("API Proxy Error:", e);
+              console.log('[API Proxy] Success - content generated');
+            } catch (e: any) {
+              console.error("[API Proxy] Error:", e.message || e);
               res.statusCode = 500;
-              res.end(JSON.stringify({ error: e.message }));
+              res.end(JSON.stringify({ error: e.message || 'Unknown error' }));
             }
           });
         }

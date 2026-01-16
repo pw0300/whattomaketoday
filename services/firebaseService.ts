@@ -51,6 +51,8 @@ export const onAuthStateChanged = (callback: (user: User | null) => void) => {
     return firebaseOnAuthStateChanged(auth, callback);
 };
 
+import { sanitizeForFirestore } from '../utils/firestoreUtils';
+
 /**
  * DATA PERSISTENCE (FIRESTORE)
  * Synchronizes the entire AppState to the cloud.
@@ -59,8 +61,11 @@ export const syncStateToCloud = async (uid: string, state: AppState): Promise<vo
     if (!uid) return;
     try {
         const userDocRef = doc(db, "users", uid);
+        // Sanitize data before sending to Firestore to remove 'undefined' values
+        const cleanState = sanitizeForFirestore(state);
+
         // We use merge: true to avoid overwriting fields if we only sync partial updates later
-        await setDoc(userDocRef, state, { merge: true });
+        await setDoc(userDocRef, cleanState, { merge: true });
         console.debug(`[Cloud Sync] State persisted for UID: ${uid}`);
     } catch (error) {
         console.error("Firestore Sync Error:", error);

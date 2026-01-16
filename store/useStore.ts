@@ -162,6 +162,7 @@ export const useStore = create<AppStore>()(
             partialize: (state) => ({
                 userProfile: state.userProfile,
                 approvedDishes: state.approvedDishes,
+                availableDishes: state.availableDishes, // Persist unswiped deck for instant reload
                 weeklyPlan: state.weeklyPlan,
                 pantryStock: state.pantryStock,
             }),

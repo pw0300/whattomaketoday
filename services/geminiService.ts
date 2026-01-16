@@ -3,6 +3,8 @@ import { Dish, UserProfile, VibeMode, ImageSize, DayPlan } from '../types';
 import { db } from './firebaseService';
 import { collection, addDoc, getDocs, query, limit, Timestamp } from 'firebase/firestore';
 
+import { sanitizeForFirestore } from '../utils/firestoreUtils';
+
 // --- CACHING LAYER ---
 const CACHE_COLLECTION = 'cached_dishes';
 
@@ -20,7 +22,8 @@ export const cacheGeneratedDishes = async (dishes: Dish[]) => {
           dish.type
         ]
       };
-      return addDoc(collection(db, CACHE_COLLECTION), cacheable);
+      const cleanCacheable = sanitizeForFirestore(cacheable);
+      return addDoc(collection(db, CACHE_COLLECTION), cleanCacheable);
     });
     await Promise.all(promises);
     console.log(`[Cache] Saved ${dishes.length} dishes to Firestore.`);
@@ -73,22 +76,15 @@ const LIGHT_DISH_SCHEMA = {
     description: { type: Type.STRING },
     primaryIngredient: { type: Type.STRING },
     cuisine: { type: Type.STRING },
-    type: { type: Type.STRING, enum: ['Lunch', 'Dinner'] },
+    type: { type: Type.STRING, enum: ['Lunch', 'Dinner', 'Breakfast', 'Snack'] },
+    tags: { type: Type.ARRAY, items: { type: Type.STRING } },
+    healthTags: { type: Type.ARRAY, items: { type: Type.STRING } },
     macros: {
       type: Type.OBJECT,
       properties: {
-        protein: { type: Type.NUMBER },
-        carbs: { type: Type.NUMBER },
-        fat: { type: Type.NUMBER },
-        calories: { type: Type.NUMBER },
+        calories: { type: Type.NUMBER }
       }
-    },
-    tags: { type: Type.ARRAY, items: { type: Type.STRING } },
-    healthTags: {
-      type: Type.ARRAY,
-      items: { type: Type.STRING, enum: ['Diabetic-Friendly', 'PCOS-Friendly', 'Heart-Healthy', 'High-Protein', 'Low-Carb', 'Keto', 'Gluten-Free'] }
-    },
-    chefAdvice: { type: Type.STRING }
+    }
   }
 };
 
@@ -116,39 +112,81 @@ const buildConstraintPrompt = (profile: UserProfile): string => {
   if (profile.allergens.length > 0) parts.push(`No: ${profile.allergens.join(', ')}`);
   if (profile.conditions.length > 0) parts.push(`Health: ${profile.conditions.join(', ')}`);
   if (profile.customNotes) parts.push(`Note: "${profile.customNotes}"`);
+  if (profile.dislikedDishes && profile.dislikedDishes.length > 0) {
+    parts.push(`Do NOT suggest: ${profile.dislikedDishes.join(', ')}`);
+  }
   return parts.join('. ');
 };
 
-// --- SECURE PROXY IMPLEMENTATION ---
+// --- SECURE PROXY (BLAZE PLAN) ---
 
 import { retryWithBackoff } from '../utils/asyncUtils';
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { env } from '../config/env';
 
-// ... (imports)
+// Client SDK fallback (only used if proxy fails, e.g., local dev without serverless)
+const genAI = env.gemini.apiKey ? new GoogleGenerativeAI(env.gemini.apiKey) : null;
 
 const secureGenerate = async (prompt: any, schema: any, modelName: string = "gemini-2.0-flash") => {
   return retryWithBackoff(async () => {
-    const body: any = { schema, modelName };
+    // STRATEGY: Proxy-First (Blaze Plan - Secure)
+    // 1. Always try the server-side proxy first (/api/generate) - keeps API key secure on server.
+    // 2. Only fall back to client SDK if proxy unavailable (local dev without serverless).
 
-    // Support simple string prompts or complex content objects
+    const body: any = { schema, modelName };
     if (typeof prompt === 'string') {
       body.prompt = prompt;
     } else {
-      body.contents = prompt; // For multi-modal or chat history
+      body.contents = prompt;
     }
 
-    const response = await fetch('/api/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
+    try {
+      console.debug(`[Gemini] Generating via secure proxy: ${modelName}`);
 
-    if (response.ok) {
-      return await response.json();
-    } else {
-      // Throwing here triggers the retry
-      throw new Error(`Proxy Error: ${response.statusText} (${response.status})`);
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      if (response.ok) {
+        return await response.json();
+      }
+
+      // If proxy returns 404/500, fall through to client fallback
+      throw new Error(`Proxy returned ${response.status}`);
+
+    } catch (proxyError) {
+      // Fallback: Client SDK (for local dev without serverless proxy)
+      if (!genAI) {
+        throw new Error('Gemini API unavailable: No proxy and no client key configured.');
+      }
+
+      console.warn("[Gemini] Proxy unavailable, using client SDK fallback...", proxyError);
+
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: schema,
+          temperature: 0.4,
+          candidateCount: 1
+        }
+      });
+
+      let result;
+      if (typeof prompt === 'string') {
+        result = await model.generateContent(prompt);
+      } else if (prompt.contents) {
+        result = await model.generateContent(prompt.contents);
+      } else {
+        result = await model.generateContent(prompt);
+      }
+
+      const responseText = result.response.text();
+      return JSON.parse(responseText);
     }
-  }, 3, 1000); // 3 retries, start at 1s
+  }, 3, 1000);
 };
 
 export const generateNewDishes = async (
@@ -160,18 +198,17 @@ export const generateNewDishes = async (
     // 1. Try Cache First
     const cached = await getCachedDishes(count, userProfile);
     if (cached.length >= count) {
-      console.log(`[Gemini] Served ${cached.length} from Cache!`);
+      // Telemetry: Log cache hit
+      console.log(`[Gemini Telemetry] Cache Hit - Served ${cached.length}/${count} dishes from cache`);
       return cached;
     }
 
     const needed = count - cached.length;
-    console.log(`[Gemini] Cache Miss. Fetching ${needed} new dishes in PARALLEL...`);
+    // Telemetry: Log cache miss
+    console.log(`[Gemini Telemetry] Cache Miss - Fetching ${needed} new dishes. Hit Rate: ${(cached.length / count * 100).toFixed(1)}%`);
 
-    // 2. Parallel Generation (Single Dish Request x N)
-    const seeds = userProfile.likedDishes?.join(', ') || '';
-    const basePrompt = `Generate 1 recipe. Mode: ${context}. ${buildConstraintPrompt(userProfile)}. 
-    ${seeds ? `User likes: ${seeds}. Suggest something similar but unique.` : ''}
-    Return JSON.`;
+    // Ultra-short prompt for speed
+    const basePrompt = `Quick recipe. ${buildConstraintPrompt(userProfile)}. JSON only.`;
 
     const tasks = Array.from({ length: needed }).map(() =>
       secureGenerate(basePrompt, LIGHT_DISH_SCHEMA, 'gemini-2.0-flash')
@@ -208,10 +245,9 @@ export const generateNewDishesProgressive = async (
   onDishReady: (dish: Dish) => void,
   context: VibeMode = 'Explorer'
 ): Promise<void> => {
-  const seeds = userProfile.likedDishes?.join(', ') || '';
-  const basePrompt = `Generate 1 recipe. Mode: ${context}. ${buildConstraintPrompt(userProfile)}. 
-    ${seeds ? `User likes: ${seeds}. Suggest something similar but unique.` : ''}
-    Return JSON.`;
+  // Ultra-short prompt for speed
+  const diet = buildConstraintPrompt(userProfile);
+  const basePrompt = `Quick recipe. ${diet}. JSON only.`;
 
   const tasks = Array.from({ length: count }).map(async () => {
     try {
@@ -244,9 +280,13 @@ export const generateNewDishesProgressive = async (
   if (dishes.length > 0) cacheGeneratedDishes(dishes);
 };
 
-export const enrichDishDetails = async (dish: Dish): Promise<Dish> => {
+export const enrichDishDetails = async (dish: Dish, userProfile?: UserProfile): Promise<Dish> => {
   try {
-    const prompt = `Create recipe for: ${dish.name} (${dish.description}). 
+    const constraints = userProfile ? buildConstraintPrompt(userProfile) : '';
+    const safetyNote = userProfile?.allergens?.length ? `CRITICAL SAFETY: STRICTLY AVOID [${userProfile.allergens.join(', ')}].` : '';
+
+    const prompt = `Create personalized recipe for: ${dish.name} (${dish.description}). 
+    ${constraints}. ${safetyNote}
     Return ingredients (with qty/category) and instructions. 
     Use minimal tokens.`;
 

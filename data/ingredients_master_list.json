@@ -1,0 +1,324 @@
+{
+    "version": "1.0",
+    "description": "Knowledge Graph for ingredient validation, substitution, and smart suggestions",
+    "ingredients": {
+        "paneer": {
+            "displayName": "Paneer",
+            "category": "Dairy",
+            "tier": "Common",
+            "allergens": [
+                "Dairy"
+            ],
+            "seasonality": "Year-round",
+            "substitutes": [
+                "tofu",
+                "cottage-cheese"
+            ],
+            "commonIn": [
+                "North Indian",
+                "Punjabi"
+            ],
+            "nutritionProfile": "high-protein"
+        },
+        "tofu": {
+            "displayName": "Tofu",
+            "category": "Protein",
+            "tier": "Common",
+            "allergens": [
+                "Soy"
+            ],
+            "seasonality": "Year-round",
+            "substitutes": [
+                "paneer"
+            ],
+            "commonIn": [
+                "Chinese",
+                "Thai"
+            ],
+            "nutritionProfile": "high-protein"
+        },
+        "spinach": {
+            "displayName": "Spinach",
+            "category": "Produce",
+            "tier": "Common",
+            "allergens": [],
+            "seasonality": "Winter",
+            "substitutes": [
+                "kale",
+                "mustard-greens"
+            ],
+            "commonIn": [
+                "North Indian",
+                "Mediterranean"
+            ],
+            "nutritionProfile": "iron-rich"
+        },
+        "yellow-lentils": {
+            "displayName": "Yellow Lentils (Moong Dal)",
+            "category": "Pantry",
+            "tier": "Common",
+            "allergens": [],
+            "seasonality": "Year-round",
+            "substitutes": [
+                "red-lentils",
+                "split-peas"
+            ],
+            "commonIn": [
+                "North Indian",
+                "South Indian"
+            ],
+            "nutritionProfile": "high-fiber"
+        },
+        "chicken": {
+            "displayName": "Chicken",
+            "category": "Protein",
+            "tier": "Common",
+            "allergens": [],
+            "seasonality": "Year-round",
+            "substitutes": [
+                "turkey",
+                "tofu"
+            ],
+            "commonIn": [
+                "North Indian",
+                "Chinese",
+                "Italian"
+            ],
+            "nutritionProfile": "high-protein"
+        },
+        "fish": {
+            "displayName": "Fish",
+            "category": "Protein",
+            "tier": "Common",
+            "allergens": [],
+            "seasonality": "Monsoon",
+            "substitutes": [
+                "shrimp",
+                "chicken"
+            ],
+            "commonIn": [
+                "Coastal",
+                "South Indian"
+            ],
+            "nutritionProfile": "omega-3"
+        },
+        "onion": {
+            "displayName": "Onion",
+            "category": "Produce",
+            "tier": "Common",
+            "allergens": [],
+            "seasonality": "Year-round",
+            "substitutes": [
+                "shallots",
+                "asafoetida"
+            ],
+            "commonIn": [
+                "Universal"
+            ],
+            "nutritionProfile": "antioxidant"
+        },
+        "garlic": {
+            "displayName": "Garlic",
+            "category": "Produce",
+            "tier": "Common",
+            "allergens": [],
+            "seasonality": "Year-round",
+            "substitutes": [
+                "asafoetida",
+                "ginger"
+            ],
+            "commonIn": [
+                "Universal"
+            ],
+            "nutritionProfile": "immunity-boost"
+        },
+        "tomato": {
+            "displayName": "Tomato",
+            "category": "Produce",
+            "tier": "Common",
+            "allergens": [],
+            "seasonality": "Summer",
+            "substitutes": [
+                "tomato-puree",
+                "tamarind"
+            ],
+            "commonIn": [
+                "Universal"
+            ],
+            "nutritionProfile": "vitamin-c"
+        },
+        "coconut-milk": {
+            "displayName": "Coconut Milk",
+            "category": "Pantry",
+            "tier": "Common",
+            "allergens": [],
+            "seasonality": "Year-round",
+            "substitutes": [
+                "cashew-cream",
+                "dairy-cream"
+            ],
+            "commonIn": [
+                "South Indian",
+                "Coastal",
+                "Thai"
+            ],
+            "nutritionProfile": "creamy"
+        },
+        "garam-masala": {
+            "displayName": "Garam Masala",
+            "category": "Spices",
+            "tier": "Common",
+            "allergens": [],
+            "seasonality": "Year-round",
+            "substitutes": [
+                "curry-powder",
+                "homemade-blend"
+            ],
+            "commonIn": [
+                "North Indian"
+            ],
+            "nutritionProfile": "aromatic"
+        },
+        "turmeric": {
+            "displayName": "Turmeric",
+            "category": "Spices",
+            "tier": "Common",
+            "allergens": [],
+            "seasonality": "Year-round",
+            "substitutes": [],
+            "commonIn": [
+                "Universal"
+            ],
+            "nutritionProfile": "anti-inflammatory"
+        },
+        "cumin": {
+            "displayName": "Cumin",
+            "category": "Spices",
+            "tier": "Common",
+            "allergens": [],
+            "seasonality": "Year-round",
+            "substitutes": [
+                "caraway"
+            ],
+            "commonIn": [
+                "Universal"
+            ],
+            "nutritionProfile": "digestive"
+        },
+        "coriander": {
+            "displayName": "Coriander",
+            "category": "Produce",
+            "tier": "Common",
+            "allergens": [],
+            "seasonality": "Winter",
+            "substitutes": [
+                "parsley"
+            ],
+            "commonIn": [
+                "Universal"
+            ],
+            "nutritionProfile": "vitamin-k"
+        },
+        "ghee": {
+            "displayName": "Ghee",
+            "category": "Dairy",
+            "tier": "Common",
+            "allergens": [
+                "Dairy"
+            ],
+            "seasonality": "Year-round",
+            "substitutes": [
+                "coconut-oil",
+                "butter"
+            ],
+            "commonIn": [
+                "North Indian"
+            ],
+            "nutritionProfile": "high-fat"
+        },
+        "rice": {
+            "displayName": "Rice",
+            "category": "Pantry",
+            "tier": "Common",
+            "allergens": [],
+            "seasonality": "Year-round",
+            "substitutes": [
+                "quinoa",
+                "cauliflower-rice"
+            ],
+            "commonIn": [
+                "Universal"
+            ],
+            "nutritionProfile": "carb-rich"
+        },
+        "potato": {
+            "displayName": "Potato",
+            "category": "Produce",
+            "tier": "Common",
+            "allergens": [],
+            "seasonality": "Year-round",
+            "substitutes": [
+                "sweet-potato",
+                "cauliflower"
+            ],
+            "commonIn": [
+                "Universal"
+            ],
+            "nutritionProfile": "carb-rich"
+        },
+        "cauliflower": {
+            "displayName": "Cauliflower (Gobi)",
+            "category": "Produce",
+            "tier": "Common",
+            "allergens": [],
+            "seasonality": "Winter",
+            "substitutes": [
+                "broccoli",
+                "potato"
+            ],
+            "commonIn": [
+                "North Indian"
+            ],
+            "nutritionProfile": "low-carb"
+        }
+    },
+    "dishTemplates": {
+        "palak-paneer": {
+            "displayName": "Palak Paneer",
+            "essentialIngredients": [
+                "spinach",
+                "paneer"
+            ],
+            "cuisine": "North Indian",
+            "dietaryTags": [
+                "Vegetarian"
+            ]
+        },
+        "dal-tadka": {
+            "displayName": "Dal Tadka",
+            "essentialIngredients": [
+                "yellow-lentils",
+                "cumin",
+                "garlic"
+            ],
+            "cuisine": "North Indian",
+            "dietaryTags": [
+                "Vegetarian",
+                "Vegan"
+            ]
+        },
+        "butter-chicken": {
+            "displayName": "Butter Chicken",
+            "essentialIngredients": [
+                "chicken",
+                "tomato",
+                "butter",
+                "cream"
+            ],
+            "cuisine": "North Indian",
+            "dietaryTags": [
+                "Non-Veg"
+            ]
+        }
+    }
+}

@@ -50,7 +50,8 @@ export interface UserProfile {
   biometrics?: Biometrics;
   dailyTargets: Macros;
   isOnboarded: boolean;
-  likedDishes: string[]; // For seeding generation
+  likedDishes?: string[]; // For seeding generation
+  dislikedDishes?: string[]; // Track negative feedback // For seeding generation
   credits?: number;
 }
 
@@ -65,7 +66,7 @@ export interface Dish {
   name: string;
   localName: string;
   description: string;
-  primaryIngredient: string;
+  primaryIngredient?: string; // Made optional for starter recipes
   cuisine: string;
   type: 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack';
   image: string;
@@ -102,7 +103,7 @@ export enum AppView {
   Planner = 'Planner',
   Shopping = 'Shopping',
   Pantry = 'Pantry',
-  Viral = 'Viral',
+  Journal = 'Journal',
   Profile = 'Profile'
 }
 
@@ -117,25 +118,4 @@ export interface AppState {
   pantryStock: string[];
 }
 
-// Viral Feed Types (YouTube API)
-export interface ViralVideo {
-  id: string;
-  videoId: string;
-  videoUrl: string;
-  thumbnailUrl: string;
-  title: string;
-  creator: string;
-  creatorAvatar: string;
-  description: string;
-  views: string;
-  likes: string;
-  publishedAt: string;
-  platform: 'youtube' | 'instagram';
-  duration: string;
-}
 
-export interface ViralFeedResult {
-  videos: ViralVideo[];
-  nextPageToken?: string;
-  hasMore: boolean;
-}

@@ -332,19 +332,27 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
         </div>
 
         {/* Magic Fill Banner */}
+        {/* Magic Fill Banner - Refined */}
         <button
           onClick={handleMagicFill}
           disabled={regenerating}
-          className="w-full mb-4 bg-brand-100 border-2 border-brand-500 text-brand-900 p-3 flex items-center justify-between shadow-sm active:translate-y-1 transition-all"
+          className="w-full mb-4 group relative overflow-hidden bg-white border-2 border-brand-200 hover:border-brand-500 rounded-xl p-4 flex items-center justify-between shadow-sm hover:shadow-md transition-all active:scale-[0.99]"
         >
-          <div className="flex items-center gap-2">
-            <Sparkles size={18} className={regenerating ? 'animate-spin' : ''} />
+          <div className="absolute inset-0 bg-gradient-to-r from-brand-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+
+          <div className="flex items-center gap-3 relative z-10">
+            <div className={`w-10 h-10 rounded-full bg-brand-100 flex items-center justify-center text-brand-600 ${regenerating ? 'animate-pulse' : ''}`}>
+              <Sparkles size={20} className={regenerating ? 'animate-spin' : ''} />
+            </div>
             <div className="text-left">
-              <span className="block font-black uppercase text-xs">Auto-Fill</span>
-              <span className="block text-[10px] opacity-75">Fill next 3 days from pantry</span>
+              <span className="block font-bold text-gray-900 text-sm">Kitchen Autopilot</span>
+              <span className="block text-xs text-brand-600 font-medium">Auto-plan next 3 days</span>
             </div>
           </div>
-          <div className="bg-brand-500 text-white px-2 py-1 text-[10px] font-bold uppercase">Run</div>
+
+          <div className="relative z-10 flex items-center gap-1.5 text-brand-600 bg-brand-50 px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider group-hover:bg-brand-500 group-hover:text-white transition-colors">
+            Run <Zap size={12} className="fill-current" />
+          </div>
         </button>
 
         <div className="flex gap-2">
@@ -370,92 +378,105 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
           </div>
         ) : (
           weekPlan.map((dayPlan, idx) => (
-            <div key={dayPlan.day} className={`bg-white border-2 border-ink shadow-hard relative transition-all ${dayPlan.isLocked ? 'ring-2 ring-brand-500 ring-offset-2' : ''}`}>
+            <div key={dayPlan.day} className={`bg-white rounded-xl border border-gray-200 shadow-sm relative overflow-hidden transition-all hover:shadow-md ${dayPlan.isLocked ? 'ring-2 ring-brand-500 ring-offset-2' : ''}`}>
               {/* Day Header */}
-              <div className={`bg-ink text-white px-3 py-1 flex justify-between items-center ${dayPlan.isLocked ? 'bg-brand-600' : 'bg-ink'}`}>
-                <h3 className="font-black uppercase tracking-wider text-sm">{dayPlan.day}</h3>
-                <div className="flex items-center gap-3">
-                  <span className="font-mono text-[10px] opacity-75">DAY 0{idx + 1}</span>
-                  <button
-                    onClick={() => toggleLock(idx)}
-                    className="text-white hover:text-brand-200 transition-colors"
-                  >
-                    {dayPlan.isLocked ? <Lock size={14} /> : <Unlock size={14} className="opacity-50" />}
-                  </button>
+              <div className={`px-4 py-3 flex justify-between items-center bg-gradient-to-r ${dayPlan.isLocked ? 'from-brand-600 to-brand-500' : 'from-gray-50 to-white border-b border-gray-100'}`}>
+                <div className="flex items-center gap-2">
+                  <span className={`text-lg font-black uppercase tracking-tight ${dayPlan.isLocked ? 'text-white' : 'text-gray-900'}`}>{dayPlan.day.substring(0, 3)}</span>
+                  <span className={`text-[10px] font-mono uppercase tracking-wider ${dayPlan.isLocked ? 'text-brand-100' : 'text-gray-400'}`}>
+                    • {dayPlan.day}
+                  </span>
                 </div>
+
+                <button
+                  onClick={() => toggleLock(idx)}
+                  className={`p-1.5 rounded-full transition-colors ${dayPlan.isLocked ? 'text-white hover:bg-white/20' : 'text-gray-300 hover:text-gray-600 hover:bg-gray-100'}`}
+                >
+                  {dayPlan.isLocked ? <Lock size={14} /> : <Unlock size={14} />}
+                </button>
               </div>
 
-              <div className={`p-0 relative ${dayPlan.isLocked ? 'bg-gray-50' : ''}`}>
+              <div className="p-0 relative">
                 {/* Locked Overlay Hint */}
                 {dayPlan.isLocked && (
-                  <div className="absolute inset-0 bg-white/10 z-10 pointer-events-none flex items-center justify-center">
-                    <Lock size={64} className="text-black/5" />
+                  <div className="absolute inset-0 bg-white/5 z-10 pointer-events-none flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
+                    <Lock size={48} className="text-brand-500/10" />
                   </div>
                 )}
 
                 {/* Lunch Slot */}
-                <div className="flex group border-b border-ink border-dashed relative">
-                  <div className="w-12 bg-gray-50 flex items-center justify-center border-r border-ink border-dashed">
-                    <Zap size={18} className="text-gray-400" />
+                <div className="flex group border-b border-gray-100 min-h-[5rem]">
+                  <div className="w-14 bg-gray-50/50 flex flex-col items-center justify-center gap-1 border-r border-gray-100">
+                    <span className="text-[10px] font-bold uppercase text-gray-400 tracking-wider">Lunch</span>
+                    <Zap size={14} className="text-orange-300" />
                   </div>
-                  <div className="flex-1 p-3 min-w-0">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-mono text-[10px] text-gray-400 uppercase mb-1">LUNCH</p>
-                        <p className="font-bold text-sm text-ink truncate pr-2 leading-tight">
-                          {dayPlan.lunch?.name || "Skipped"}
-                        </p>
-                        <p className="font-serif italic text-xs text-gray-500">{dayPlan.lunch?.localName}</p>
-                      </div>
-                      <div className="flex gap-2 relative z-20">
-                        {/* Leftover Button */}
-                        {idx > 0 && weekPlan[idx - 1].dinner && !dayPlan.lunch && !dayPlan.isLocked && (
-                          <button
-                            onClick={() => handleLeftovers(idx)}
-                            className="p-2 hover:bg-orange-100 text-orange-400 hover:text-orange-600 rounded-full transition"
-                            title="Eat Leftovers"
-                          >
-                            <ArrowDownCircle size={14} />
-                          </button>
-                        )}
-                        {!dayPlan.isLocked && (
-                          <button
-                            onClick={() => handleSwapSlot(idx, 'lunch')}
-                            className="p-2 hover:bg-gray-100 rounded-full transition text-gray-400 hover:text-ink"
-                            disabled={!!swappingSlot}
-                          >
-                            <RotateCw size={14} className={swappingSlot?.dayIndex === idx && swappingSlot?.type === 'lunch' ? 'animate-spin text-brand-600' : ''} />
-                          </button>
-                        )}
-                      </div>
+                  <div className="flex-1 p-3 flex justify-between items-center">
+                    <div className="flex-1 min-w-0 pr-3">
+                      {dayPlan.lunch ? (
+                        <>
+                          <p className="font-bold text-gray-800 leading-tight truncate">{dayPlan.lunch.name}</p>
+                          <p className="text-xs text-gray-500 mt-0.5 truncate">{dayPlan.lunch.localName}</p>
+                        </>
+                      ) : (
+                        <p className="text-sm text-gray-400 italic">Skipped</p>
+                      )}
+                    </div>
+
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {/* Leftover Button */}
+                      {idx > 0 && weekPlan[idx - 1].dinner && !dayPlan.lunch && !dayPlan.isLocked && (
+                        <button
+                          onClick={() => handleLeftovers(idx)}
+                          className="p-1.5 hover:bg-orange-50 text-orange-400 hover:text-orange-600 rounded-md transition"
+                          title="Eat Leftovers"
+                        >
+                          <ArrowDownCircle size={14} />
+                        </button>
+                      )}
+                      {!dayPlan.isLocked && (
+                        <button
+                          onClick={() => handleSwapSlot(idx, 'lunch')}
+                          className="p-1.5 hover:bg-gray-100 rounded-md transition text-gray-400 hover:text-brand-600"
+                          title="Swap Dish"
+                          disabled={!!swappingSlot}
+                        >
+                          <RotateCw size={14} className={swappingSlot?.dayIndex === idx && swappingSlot?.type === 'lunch' ? 'animate-spin text-brand-600' : ''} />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
 
                 {/* Dinner Slot */}
-                <div className="flex group">
-                  <div className="w-12 bg-gray-50 flex items-center justify-center border-r border-ink border-dashed">
-                    <Coffee size={18} className="text-gray-400" />
+                <div className="flex group min-h-[5rem]">
+                  <div className="w-14 bg-gray-50/50 flex flex-col items-center justify-center gap-1 border-r border-gray-100">
+                    <span className="text-[10px] font-bold uppercase text-gray-400 tracking-wider">Dinner</span>
+                    <Coffee size={14} className="text-indigo-300" />
                   </div>
-                  <div className="flex-1 p-3 min-w-0">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-mono text-[10px] text-gray-400 uppercase mb-1">DINNER</p>
-                        <p className="font-bold text-sm text-ink truncate pr-2 leading-tight">
-                          {dayPlan.dinner?.name || 'Not planned yet'}
-                        </p>
-                        <p className="font-serif italic text-xs text-gray-500">{dayPlan.dinner?.localName}</p>
-                      </div>
-                      {!dayPlan.isLocked && (
+                  <div className="flex-1 p-3 flex justify-between items-center">
+                    <div className="flex-1 min-w-0 pr-3">
+                      {dayPlan.dinner ? (
+                        <>
+                          <p className="font-bold text-gray-800 leading-tight truncate">{dayPlan.dinner.name}</p>
+                          <p className="text-xs text-gray-500 mt-0.5 truncate">{dayPlan.dinner.localName}</p>
+                        </>
+                      ) : (
+                        <p className="text-sm text-gray-400 italic">Not planned</p>
+                      )}
+                    </div>
+
+                    {!dayPlan.isLocked && (
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => handleSwapSlot(idx, 'dinner')}
-                          className="p-2 hover:bg-gray-100 rounded-full transition text-gray-400 hover:text-ink"
+                          className="p-1.5 hover:bg-gray-100 rounded-md transition text-gray-400 hover:text-brand-600"
+                          title="Swap Dish"
                           disabled={!!swappingSlot}
                         >
                           <RotateCw size={14} className={swappingSlot?.dayIndex === idx && swappingSlot?.type === 'dinner' ? 'animate-spin text-brand-600' : ''} />
                         </button>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

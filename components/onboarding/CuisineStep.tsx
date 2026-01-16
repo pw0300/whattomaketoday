@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { UserProfile } from '../../types';
-import { UtensilsCrossed, Plus, X } from 'lucide-react';
+import { UtensilsCrossed, Plus, X, ChevronLeft, Heart } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 interface Props {
     profile: UserProfile;
@@ -16,6 +17,7 @@ const CUISINE_SUGGESTIONS: string[] = [
 
 const CuisineStep: React.FC<Props> = ({ profile, onProfileChange, onNext, onBack }) => {
     const [customCuisineInput, setCustomCuisineInput] = useState('');
+    const [favoriteInput, setFavoriteInput] = useState('');
 
     const toggleCuisine = (c: string) => {
         onProfileChange({
@@ -36,12 +38,13 @@ const CuisineStep: React.FC<Props> = ({ profile, onProfileChange, onNext, onBack
         }
     };
 
-    const addLikedDish = (dish: string) => {
-        if (dish.trim()) {
+    const addLikedDish = () => {
+        if (favoriteInput.trim()) {
             onProfileChange({
                 ...profile,
-                likedDishes: [...(profile.likedDishes || []), dish.trim()]
+                likedDishes: [...(profile.likedDishes || []), favoriteInput.trim()]
             });
+            setFavoriteInput('');
         }
     };
 
@@ -53,100 +56,121 @@ const CuisineStep: React.FC<Props> = ({ profile, onProfileChange, onNext, onBack
     };
 
     return (
-        <div className="animate-in fade-in slide-in-from-right duration-300">
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2 uppercase">
-                <UtensilsCrossed className="w-6 h-6" strokeWidth={2.5} />
-                Your Tastes
-            </h2>
-            <p className="mb-4 text-sm font-medium text-gray-600">Select preferred cuisines:</p>
-
-            {/* Standard Options */}
-            <div className="grid grid-cols-2 gap-3 mb-4">
-                {CUISINE_SUGGESTIONS.map((cuisine) => (
-                    <button
-                        key={cuisine}
-                        onClick={() => toggleCuisine(cuisine)}
-                        className={`p-3 border-2 transition-all flex justify-center items-center font-bold uppercase text-xs text-center h-12 ${profile.cuisines.includes(cuisine)
-                            ? 'border-ink bg-yellow-300 text-ink shadow-hard-sm'
-                            : 'border-ink bg-white text-ink hover:bg-gray-50'
-                            }`}
-                    >
-                        {cuisine}
-                    </button>
-                ))}
+        <div className="flex flex-col h-full">
+            <div className="mb-6">
+                <h2 className="font-serif text-3xl text-[#1A4D2E] mb-2">Flavor Profile</h2>
+                <p className="text-[#1A4D2E]/60 font-sans text-sm">What do you enjoy eating?</p>
             </div>
 
-            {/* Custom Cuisine Adder */}
-            <div className="mb-6">
-                <label className="text-[10px] font-mono uppercase text-gray-500 mb-1 block">Add Cuisines</label>
-                <div className="flex gap-2 mb-3">
-                    <input
-                        type="text"
-                        value={customCuisineInput}
-                        onChange={(e) => setCustomCuisineInput(e.target.value)}
-                        placeholder="e.g. Ethiopian, Peruvian..."
-                        className="flex-1 border-2 border-ink p-2 font-mono text-sm focus:bg-yellow-50 focus:outline-none"
-                        onKeyDown={(e) => e.key === 'Enter' && addCustomCuisine()}
-                    />
-                    <button
-                        onClick={addCustomCuisine}
-                        className="bg-ink text-white px-3 border-2 border-ink hover:bg-gray-800"
-                    >
-                        <Plus size={20} />
-                    </button>
+            <div className="flex-1 overflow-y-auto no-scrollbar pr-2 space-y-8">
+                {/* Standard Cuisines */}
+                <div>
+                    <label className="text-[10px] uppercase font-bold text-[#1A4D2E]/40 tracking-widest mb-3 block">Popular Cuisines</label>
+                    <div className="flex flex-wrap gap-2">
+                        {CUISINE_SUGGESTIONS.map((cuisine) => {
+                            const isSelected = profile.cuisines.includes(cuisine);
+                            return (
+                                <motion.button
+                                    key={cuisine}
+                                    onClick={() => toggleCuisine(cuisine)}
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    className={`
+                                        px-4 py-2 rounded-full font-medium text-sm transition-all border
+                                        ${isSelected
+                                            ? 'bg-[#F9C74F] text-[#1A4D2E] border-[#F9C74F] shadow-sm'
+                                            : 'bg-white text-[#1A4D2E]/70 border-[#1A4D2E]/10 hover:border-[#F9C74F]/50'
+                                        }
+                                    `}
+                                >
+                                    {cuisine}
+                                </motion.button>
+                            )
+                        })}
+                    </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                    {profile.cuisines.filter(c => !CUISINE_SUGGESTIONS.includes(c)).map(c => (
-                        <span key={c} className="bg-yellow-300 border border-ink px-2 py-1 text-[10px] font-bold uppercase flex items-center gap-1">
-                            {c} <button onClick={() => toggleCuisine(c)}><X size={10} /></button>
-                        </span>
-                    ))}
-                </div>
-            </div>
+                {/* Custom Additions */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Add Cuisine */}
+                    <div>
+                        <label className="text-[10px] uppercase font-bold text-[#1A4D2E]/40 tracking-widest mb-2 block">More Cuisines</label>
+                        <div className="flex flex-row items-center gap-2 mb-3 w-full">
+                            <input
+                                type="text"
+                                value={customCuisineInput}
+                                onChange={(e) => setCustomCuisineInput(e.target.value)}
+                                placeholder="Type & Enter (e.g. 'Lebanese')"
+                                className="flex-1 bg-white border border-[#1A4D2E]/10 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#1A4D2E] focus:ring-1 focus:ring-[#1A4D2E] shadow-sm transition-all"
+                                onKeyDown={(e) => e.key === 'Enter' && addCustomCuisine()}
+                            />
+                            <button
+                                onClick={addCustomCuisine}
+                                disabled={!customCuisineInput.trim()}
+                                className="bg-[#1A4D2E] text-white p-3 rounded-lg hover:bg-[#143d24] disabled:opacity-50 disabled:cursor-not-allowed shadow-md transition-all shrink-0"
+                            >
+                                <Plus size={20} />
+                            </button>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {profile.cuisines.filter(c => !CUISINE_SUGGESTIONS.includes(c)).map(c => (
+                                <span key={c} className="bg-[#1A4D2E]/10 px-2 py-1 rounded-md text-xs font-bold text-[#1A4D2E] flex items-center gap-1">
+                                    {c} <button onClick={() => toggleCuisine(c)}><X size={10} /></button>
+                                </span>
+                            ))}
+                        </div>
+                    </div>
 
-            {/* Favorite Dishes Seeder */}
-            <div className="mb-6">
-                <label className="text-[10px] font-mono uppercase text-gray-500 mb-1 block">Your Favorites</label>
-                <input
-                    type="text"
-                    placeholder="e.g. Butter Chicken, Pasta Carbonara..."
-                    className="w-full border-2 border-ink p-2 font-mono text-sm focus:bg-yellow-50 focus:outline-none mb-2"
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                            addLikedDish(e.currentTarget.value);
-                            e.currentTarget.value = '';
-                        }
-                    }}
+                    {/* Favorite Dishes */}
+                    <div>
+                        <label className="text-[10px] uppercase font-bold text-[#1A4D2E]/40 tracking-widest mb-2 block">Must-Haves (Favorites)</label>
+                        <div className="flex flex-row items-center gap-2 mb-3 w-full">
+                            <input
+                                type="text"
+                                value={favoriteInput}
+                                onChange={(e) => setFavoriteInput(e.target.value)}
+                                placeholder="Type & Enter (e.g. 'Rajma')"
+                                className="flex-1 bg-white border border-[#1A4D2E]/10 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-[#F9C74F] focus:ring-1 focus:ring-[#F9C74F] shadow-sm transition-all"
+                                onKeyDown={(e) => e.key === 'Enter' && addLikedDish()}
+                            />
+                            <button
+                                onClick={addLikedDish}
+                                disabled={!favoriteInput.trim()}
+                                className="bg-[#F9C74F] text-[#1A4D2E] p-3 rounded-lg hover:bg-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed shadow-md transition-all shrink-0"
+                            >
+                                <Heart size={20} />
+                            </button>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {profile.likedDishes?.map((d, i) => (
+                                <span key={i} className="bg-red-50 text-red-800 border border-red-100 px-2 py-1 rounded-md text-xs font-bold flex items-center gap-1">
+                                    {d} <button onClick={() => removeLikedDish(i)}><X size={10} /></button>
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                <textarea
+                    className="w-full bg-[#F8F5F2] border border-[#1A4D2E]/10 rounded-xl p-4 font-mono text-xs h-20 resize-none focus:outline-none focus:border-[#1A4D2E] transition-all"
+                    placeholder="Any specific notes? (e.g. 'Love spicy food', 'No cilantro', 'Prefer creamy textures')..."
+                    value={profile.cuisineNotes}
+                    onChange={(e) => onProfileChange({ ...profile, cuisineNotes: e.target.value })}
                 />
-                <div className="flex flex-wrap gap-2">
-                    {profile.likedDishes?.map((d, i) => (
-                        <span key={i} className="bg-brand-100 border border-brand-500 text-brand-900 px-2 py-1 text-[10px] font-bold uppercase flex items-center gap-1">
-                            {d} <button onClick={() => removeLikedDish(i)}><X size={10} /></button>
-                        </span>
-                    ))}
-                </div>
             </div>
 
-            <textarea
-                className="w-full border-2 border-ink p-2 mb-6 bg-white font-mono text-xs h-20 resize-none focus:outline-none placeholder:text-gray-400"
-                placeholder="Flavor notes (e.g. 'Love spicy', 'No cilantro', 'Prefer creamy textures')..."
-                value={profile.cuisineNotes}
-                onChange={(e) => onProfileChange({ ...profile, cuisineNotes: e.target.value })}
-            />
-
-            <div className="flex gap-4">
+            <div className="flex gap-4 mt-6">
                 <button
                     onClick={onBack}
-                    className="flex-1 bg-white border-2 border-ink text-ink py-4 font-bold uppercase hover:bg-gray-100"
+                    className="w-14 h-14 rounded-full border border-[#1A4D2E]/10 flex items-center justify-center text-[#1A4D2E] hover:bg-gray-50 transition-colors"
                 >
-                    Back
+                    <ChevronLeft size={24} />
                 </button>
                 <button
                     onClick={onNext}
-                    className="flex-1 bg-brand-500 text-white border-2 border-ink py-4 font-black uppercase shadow-hard hover:translate-y-1 hover:shadow-none transition-all"
+                    className="flex-1 bg-[#1A4D2E] text-[#F8F5F2] h-14 rounded-full font-mono text-sm uppercase tracking-widest font-bold shadow-xl hover:bg-[#143d24] hover:shadow-2xl hover:scale-[1.01] transition-all"
                 >
-                    Next
+                    Almost Done
                 </button>
             </div>
         </div>
