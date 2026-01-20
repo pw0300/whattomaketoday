@@ -23,6 +23,7 @@ import DishModal from '../components/DishModal';
 import Receipt from '../components/Receipt';
 import CookView from '../components/CookView';
 import AuthOverlay from '../components/AuthOverlay';
+import CuratingScreen from '../components/CuratingScreen';
 import { Layers, LayoutGrid, ClipboardList, Package, Settings, Loader2, User, LogOut, BookOpen } from 'lucide-react';
 import FirebaseStatus from '../components/debug/FirebaseStatus';
 import SEO from '../components/SEO';
@@ -48,6 +49,17 @@ const Dashboard: React.FC = () => {
         initialImportTab, setInitialImportTab,
         hydrateFromCloud, getAppState,
     } = useStore();
+
+    // Generate or retrieve session ID for anonymous users
+    const [sessionId] = React.useState(() => {
+        const existing = localStorage.getItem('session_id');
+        if (existing) return existing;
+        const newId = `anon_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        localStorage.setItem('session_id', newId);
+        return newId;
+    });
+
+    const userId = React.useMemo(() => currentUser?.uid || sessionId, [currentUser, sessionId]);
 
     // Initialize Auth & Local State
     useEffect(() => {
@@ -156,13 +168,25 @@ const Dashboard: React.FC = () => {
 
         if (direction === SwipeDirection.Right || direction === SwipeDirection.Up) {
             setApprovedDishes((prev) => [...prev, { ...dish, isStaple: direction === SwipeDirection.Up }]);
-        } else if (direction === SwipeDirection.Left && userProfile) {
-            // Feedback Loop: Track dislikes
-            const updatedProfile = {
-                ...userProfile,
-                dislikedDishes: [...(userProfile.dislikedDishes || []), dish.name]
-            };
-            setUserProfile(updatedProfile);
+
+            // Track Like
+            import('../services/userHistoryService').then(({ trackLikedDish }) => {
+                if (userId) trackLikedDish(userId, dish);
+            });
+        } else if (direction === SwipeDirection.Left) {
+            // Track Dislike
+            import('../services/userHistoryService').then(({ trackDislikedDish }) => {
+                if (userId) trackDislikedDish(userId, dish);
+            });
+
+            if (userProfile) {
+                // Feedback Loop: Track dislikes in profile too (legacy/redundant but keeps existing logic)
+                const updatedProfile = {
+                    ...userProfile,
+                    dislikedDishes: [...(userProfile.dislikedDishes || []), dish.name]
+                };
+                setUserProfile(updatedProfile);
+            }
         }
 
         const unswiped = availableDishes.filter(d => !approvedDishes.some(ad => ad.id === d.id)).length;
@@ -185,47 +209,60 @@ const Dashboard: React.FC = () => {
         setView(AppView.Onboarding);
     };
 
+    // === NEW: Curating Screen State ===
+    const [curatingDishCount, setCuratingDishCount] = React.useState(0);
+    const [recentDishName, setRecentDishName] = React.useState<string | undefined>();
+    const [curatingProfile, setCuratingProfile] = React.useState<UserProfile | null>(null);
+
     const handleOnboardingComplete = async (profile: UserProfile) => {
         setUserProfile(profile);
+        setCuratingProfile(profile);
 
-        // Zero-Latency: Load filtered starter recipes instantly
+        // Get filtered starter recipes
         const safeStarterDishes = filterStarterRecipes({
             dietaryPreference: profile.dietaryPreference,
-            allergens: profile.allergens
+            allergens: profile.allergens,
+            cuisines: profile.cuisines
         });
 
-        // Fail-Safe: If filtered results are too few, show loader and fetch from API
-        if (safeStarterDishes.length < 3) {
-            setIsSeeding(true);
-            try {
-                const dishes = await generateNewDishes(6, profile, 'Explorer');
-                setAvailableDishes(dishes);
-            } catch (e) {
-                console.error("Initial Gen Error", e);
-                // Even on error, show what we have
-                setAvailableDishes(safeStarterDishes);
-            } finally {
-                setIsSeeding(false);
-                setView(AppView.Swipe);
-            }
-            return;
+        // Start with starter recipes
+        const initialDishes = safeStarterDishes.slice(0, 5);
+        setAvailableDishes(initialDishes);
+        setCuratingDishCount(initialDishes.length);
+
+        if (initialDishes.length > 0) {
+            setRecentDishName(initialDishes[initialDishes.length - 1].name);
         }
 
-        // Happy Path: Show first 5 starter recipes instantly (0ms)
-        setAvailableDishes(safeStarterDishes.slice(0, 5));
-        setView(AppView.Swipe);
+        // Show Curating Screen immediately
+        setView(AppView.Curating);
 
-        // Background: Fetch AI-generated dishes to backfill
-        if (safeStarterDishes.length < 10) {
-            generateNewDishes(6, profile, 'Explorer')
-                .then(newDishes => {
+        // Progressive loading: Add AI-generated dishes one by one
+        const TARGET_DISHES = 10;
+        const neededFromAI = Math.max(0, TARGET_DISHES - initialDishes.length);
+
+        if (neededFromAI > 0) {
+            generateNewDishesProgressive(
+                neededFromAI,
+                profile,
+                (newDish) => {
+                    // Update state as each dish arrives
                     setAvailableDishes(prev => {
-                        const unique = newDishes.filter(nd => !prev.some(pd => pd.id === nd.id));
-                        return [...prev, ...unique];
+                        const exists = prev.some(d => d.id === newDish.id);
+                        if (exists) return prev;
+                        return [...prev, newDish];
                     });
-                })
-                .catch(e => console.error("Background Gen Error", e));
+                    setCuratingDishCount(prev => prev + 1);
+                    setRecentDishName(newDish.name);
+                },
+                'Explorer'
+            ).catch(e => console.error("[Curating] Generation error:", e));
         }
+    };
+
+    const handleCuratingComplete = () => {
+        setView(AppView.Swipe);
+        setCuratingProfile(null);
     };
 
     const isCookView = useMemo(() => new URLSearchParams(window.location.search).get('view') === 'cook', []);
@@ -235,6 +272,19 @@ const Dashboard: React.FC = () => {
 
     if (isSeeding) return <div className="h-screen flex flex-col items-center justify-center bg-[#F8F5F2] font-mono text-xs text-[#1A4D2E]"><Loader2 className="animate-spin mb-4" />Creating your menu...</div>;
     if (!userProfile || view === AppView.Onboarding) return <Onboarding onComplete={handleOnboardingComplete} />;
+
+    // NEW: Curating Screen after onboarding
+    if (view === AppView.Curating) {
+        return (
+            <CuratingScreen
+                dishesLoaded={curatingDishCount}
+                targetDishes={10}
+                recentDishName={recentDishName}
+                userCuisines={curatingProfile?.cuisines || userProfile?.cuisines}
+                onComplete={handleCuratingComplete}
+            />
+        );
+    }
 
     return (
         <div className="h-screen flex flex-col bg-background text-ink overflow-hidden selection:bg-brand-100 selection:text-brand-900 font-sans">

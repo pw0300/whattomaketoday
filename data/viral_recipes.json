@@ -1,0 +1,513 @@
+[
+  {
+    "name": "Palak Paneer Recipe | Spinach Paneer Curry Restaurant Style",
+    "ingredients": [
+      {
+        "category": "Produce",
+        "name": "palak / spinach",
+        "quantity": "1 bunch"
+      },
+      {
+        "category": "Spices",
+        "name": "garlic",
+        "quantity": "2 cloves"
+      },
+      {
+        "category": "Produce",
+        "name": "ginger",
+        "quantity": "1 inch"
+      },
+      {
+        "category": "Spices",
+        "name": "chilli",
+        "quantity": "3"
+      },
+      {
+        "category": "Pantry",
+        "name": "oil",
+        "quantity": "2 tbsp"
+      },
+      {
+        "category": "Dairy",
+        "name": "butter",
+        "quantity": "1 tsp"
+      },
+      {
+        "category": "Spices",
+        "name": "dried red chilli",
+        "quantity": "1"
+      },
+      {
+        "category": "Spices",
+        "name": "cumin",
+        "quantity": "1 tsp"
+      },
+      {
+        "category": "Spices",
+        "name": "bay leaf",
+        "quantity": "1"
+      },
+      {
+        "category": "Produce",
+        "name": "onion",
+        "quantity": "1, finely chopped"
+      },
+      {
+        "category": "Pantry",
+        "name": "ginger garlic paste",
+        "quantity": "1 tsp"
+      },
+      {
+        "category": "Spices",
+        "name": "turmeric",
+        "quantity": "¼ tsp"
+      },
+      {
+        "category": "Spices",
+        "name": "chilli powder",
+        "quantity": "½ tsp"
+      },
+      {
+        "category": "Spices",
+        "name": "coriander powder",
+        "quantity": "½ tsp"
+      },
+      {
+        "category": "Pantry",
+        "name": "salt",
+        "quantity": "1 tsp"
+      },
+      {
+        "category": "Produce",
+        "name": "capsicum",
+        "quantity": "few, sliced"
+      },
+      {
+        "category": "Produce",
+        "name": "tomato",
+        "quantity": "1, chopped"
+      },
+      {
+        "category": "Pantry",
+        "name": "water",
+        "quantity": "1 cup"
+      },
+      {
+        "category": "Dairy",
+        "name": "cream",
+        "quantity": "1 tbsp"
+      },
+      {
+        "category": "Dairy",
+        "name": "paneer",
+        "quantity": "1 tbsp, crumbled"
+      },
+      {
+        "category": "Protein",
+        "name": "paneer",
+        "quantity": "250 grams, cubes"
+      },
+      {
+        "category": "Spices",
+        "name": "garam masala",
+        "quantity": "½ tsp"
+      },
+      {
+        "category": "Spices",
+        "name": "kasuri methi",
+        "quantity": "1 tsp, crushed"
+      }
+    ],
+    "instructions": [
+      "Firstly, in large vessel get the water to a rolling boil. once the water comes to a boil, add 1 bunch palak.",
+      "Turn off the flame and dip the palak into boiling water completely.",
+      "Rest the palak in hot water for 2 minutes or until the leaves are blanched well.",
+      "Immediately, drop the palak leaves into ice-cold water. this helps to retain bright green colour.",
+      "Now transfer the blanched palak into the mixer jar.",
+      "Add 2 cloves garlic, 1 inch ginger, and 3 chilli.",
+      "Blend to smooth puree without adding any water. keep aside.",
+      "In a large kadai heat 2 tbsp oil, 1 tsp butter, 1 dried red chilli, 1 tsp cumin and 1 bay leaf. saute on low flame until the spices turn aromatic.",
+      "Now add 1 onion, 1 tsp ginger garlic paste and saute until onions turn golden brown.",
+      "Further keeping the flame on low, add ¼ tsp turmeric, ½ tsp chilli powder, ½ tsp coriander powder and 1 tsp salt.",
+      "Saute until the spices turn aromatic.",
+      "Now add few capsicum and saute until the capsicum shrinks slightly.",
+      "Further, add 1 tomato and cook until the tomato turns soft and mushy.",
+      "Now add in prepared palak puree and cook well.",
+      "Also, add 1 cup water and adjust the consistency as required.",
+      "Now add 1 tbsp cream and 1 tbsp paneer. mix well making sure the consistency is attained as required.",
+      "Add 250 grams paneer and simmer for 2 minutes.",
+      "Also, add ½ tsp garam masala and 1 tsp kasuri methi. mix well.",
+      "Finally, enjoy palak paneer recipe with roti or rice."
+    ],
+    "cuisine": "North Indian",
+    "description": "Easy Palak Paneer Recipe | Spinach Paneer Curry Restaurant Style",
+    "macros": {
+      "calories": 314,
+      "carbs": 10,
+      "fat": 26,
+      "protein": 11
+    },
+    "tags": [
+      "north indian",
+      "punjabi",
+      "adolescents",
+      "aged",
+      "athletes",
+      "kids"
+    ],
+    "type": "Lunch",
+    "id": "567ed021-3c9a-47cc-a4de-0c5ec0e4249a",
+    "image": "https://picsum.photos/400/400?random=752",
+    "localName": "Palak Paneer Recipe | Spinach Paneer Curry Restaurant Style",
+    "healthTags": [],
+    "allergens": [],
+    "isStaple": false
+  },
+  {
+    "name": "Dal Makhani Recipe (Restaurant Style)",
+    "ingredients": [
+      {
+        "category": "Protein",
+        "name": "urad dal (Indian black lentils/ whole black gram)",
+        "quantity": "1 cup (200 grams)"
+      },
+      {
+        "category": "Protein",
+        "name": "rajma (red kidney beans, or sub with urad dal)",
+        "quantity": "¼ cup (55 grams)"
+      },
+      {
+        "category": "Pantry",
+        "name": "water",
+        "quantity": "4 cups (960 ml)"
+      },
+      {
+        "category": "Pantry",
+        "name": "ghee (or use oil)",
+        "quantity": "2 tablespoons (30 ml)"
+      },
+      {
+        "category": "Dairy",
+        "name": "unsalted butter (cultured butter if you can)",
+        "quantity": "3 tablespoons (42 grams)"
+      },
+      {
+        "category": "Produce",
+        "name": "onions (fine chopped 1 small to medium)",
+        "quantity": "½ cup (65 grams)"
+      },
+      {
+        "category": "Produce",
+        "name": "ginger garlic paste (or ¾ tbsp. (9 grams) each grated)",
+        "quantity": "1 tablespoon (18 grams)"
+      },
+      {
+        "category": "Produce",
+        "name": "tomato puree (bottled or 2 to 3 medium tomatoes pureed in a blender)",
+        "quantity": "1 cup (220 grams)"
+      },
+      {
+        "category": "Spices",
+        "name": "Kashmiri red chili powder (adjust to preference, I use 1 tsp)",
+        "quantity": "¾ to 1½ teaspoon"
+      },
+      {
+        "category": "Spices",
+        "name": "garam masala (+ ½ tsp more if you want at the finishing stage)",
+        "quantity": "1 teaspoon"
+      },
+      {
+        "category": "Pantry",
+        "name": "sea salt (adjust as needed)",
+        "quantity": "1 teaspoon"
+      },
+      {
+        "category": "Pantry",
+        "name": "hot water (to add later)",
+        "quantity": "2 cups (480 ml)"
+      },
+      {
+        "category": "Spices",
+        "name": "kasuri methi (dried fenugreek leaves, optional)",
+        "quantity": "1 tablespoon"
+      },
+      {
+        "category": "Dairy",
+        "name": "heavy cream (cooking cream or whipping cream, more to garnish if you want)",
+        "quantity": "¼ to ⅓ cup (60 to 80 ml)"
+      },
+      {
+        "category": "Spices",
+        "name": "bay leaf",
+        "quantity": "1"
+      },
+      {
+        "category": "Spices",
+        "name": "green cardamoms",
+        "quantity": "2"
+      },
+      {
+        "category": "Spices",
+        "name": "black cardamom",
+        "quantity": "1"
+      }
+    ],
+    "instructions": [
+      "Add urad dal and rajma to a large bowl and rinse them rubbing very well. Drain and repeat the rinse thrice. Soak in 4 cups of water, overnight. Later drain, rinse well and drain again.",
+      "Pour 4 cups fresh water to the dal and pressure cook for 10 whistles on a medium heat or in the instant pot for 20 mins (high pressure). If you don’t have a cooker, cook in a heavy bottom pot until soft and tender, adding more hot water as needed.",
+      "Both urad dal and rajma must cook down very soft. When mashed with a spoon the dal and rajma must be soft and get mashed well easily. If not then pour another half cup hot water and continue to cook for another 3 to 4 whistles on a medium heat.",
+      "Heat a heavy bottom pot with ghee. Add the whole spices if using and let them sizzle for a minute.",
+      "Stir in the onions and saute until golden, for 7 mins. Stir in ginger garlic paste and saute for 1 minute until aromatic.",
+      "Pour the tomato puree and cook for 3 to 4 minutes. Stir in salt, chili powder & garam masala. Saute well until the masala smells good and turns thick, for 4 to 5 mins.",
+      "Mash the cooked urad dal slightly and pour it along with the stock (lentil cooked liquid). Pour 1 cup hot water & mix.",
+      "Cook on a low flame until the dal becomes thick, stir often in between to prevent burning the bottom. After 60 mins, the dal thickens.",
+      "Add another ½ to 1 cup hot boiling water and continue to cook until really thick. (This takes another 30 mins. Totally cook for about 90 mins from the time you added the cooked dal to the pot. The cook time may vary depending on your pot and stove)",
+      "Crush kasuri methi in your palm and add it. Also pour the cream. Stir and cook again for 6 to 8 mins until it becomes thick and creamy. Taste and add more salt or garam masala if needed. Add butter and mix well.",
+      "Place a small piece of foil or an aluminum foil cup or a tall steel cup on the dal makhani. Hold 1 to 2 inch piece of natural wood charcoal with a tong and burn it on direct fire until red hot, for 3 to 4 mins. Then place it on the foil/cup kept over dal.",
+      "Quickly pour ¼ tsp ghee on the hot coal. Immediately cover the pot and allow to smoke for 3 to 4 mins. For stronger flavor, add another ¼ tsp ghee on the coal and repeat the smoking.",
+      "Garnish dal makhani with more butter or cream & serve with fluffy Basmati rice or naan."
+    ],
+    "cuisine": "Indian",
+    "description": "Dal makhani is a delicious, rich & creamy dish made with black lentils, spices, butter and cream. Instructions included for stovetop and instant pot.",
+    "macros": {
+      "calories": 410,
+      "carbs": 37,
+      "fat": 22,
+      "protein": 15
+    },
+    "tags": [
+      "vegetarian",
+      "creamy",
+      "rich",
+      "lentils",
+      "spicy"
+    ],
+    "type": "Dinner",
+    "id": "7165794c-7cca-406e-b76a-e8aa8a199875",
+    "image": "https://picsum.photos/400/400?random=776",
+    "localName": "Dal Makhani Recipe (Restaurant Style)",
+    "healthTags": [],
+    "allergens": [],
+    "isStaple": false
+  },
+  {
+    "name": "Masala Dosa",
+    "ingredients": [
+      {
+        "category": "Pantry",
+        "name": "urad dal (skinned black gram)",
+        "quantity": "½ cup"
+      },
+      {
+        "category": "Pantry",
+        "name": "chana dal (bengal gram)",
+        "quantity": "3 tablespoon"
+      },
+      {
+        "category": "Pantry",
+        "name": "raw sona masuri rice",
+        "quantity": "1½ cup"
+      },
+      {
+        "category": "Pantry",
+        "name": "idli rice (optional)",
+        "quantity": "½ cup"
+      },
+      {
+        "category": "Pantry",
+        "name": "poha (flattened rice)",
+        "quantity": "3 tablespoon"
+      },
+      {
+        "category": "Spices",
+        "name": "methi seeds (fenugreek seeds)",
+        "quantity": "½ teaspoon"
+      },
+      {
+        "category": "Pantry",
+        "name": "pink salt or non-iodized salt",
+        "quantity": "¾ teaspoon"
+      },
+      {
+        "category": "Pantry",
+        "name": "water",
+        "quantity": "1¼ cups to blend dal"
+      },
+      {
+        "category": "Pantry",
+        "name": "water",
+        "quantity": "½ to ¾ cups to blend rice"
+      },
+      {
+        "category": "Produce",
+        "name": "potatoes cubed",
+        "quantity": "2 cups"
+      },
+      {
+        "category": "Pantry",
+        "name": "oil",
+        "quantity": "1 tablespoon"
+      },
+      {
+        "category": "Spices",
+        "name": "mustard seeds",
+        "quantity": "¼ to ½ teaspoon"
+      },
+      {
+        "category": "Spices",
+        "name": "cumin (jeera)",
+        "quantity": "½ teaspoon"
+      },
+      {
+        "category": "Pantry",
+        "name": "chana dal (bengal gram) (optional)",
+        "quantity": "1 teaspoon"
+      },
+      {
+        "category": "Pantry",
+        "name": "urad dal (skinned black gram) (optional)",
+        "quantity": "1 teaspoon"
+      },
+      {
+        "category": "Spices",
+        "name": "asafoetida (hing)(optional)",
+        "quantity": "1 pinch"
+      },
+      {
+        "category": "Produce",
+        "name": "ginger (grated or paste)",
+        "quantity": "1 teaspoon"
+      },
+      {
+        "category": "Produce",
+        "name": "onions thinly sliced",
+        "quantity": "¾ to 1 cup"
+      },
+      {
+        "category": "Produce",
+        "name": "curry leaves",
+        "quantity": "1 sprig"
+      },
+      {
+        "category": "Produce",
+        "name": "green chilies chopped or sliced",
+        "quantity": "2"
+      },
+      {
+        "category": "Spices",
+        "name": "turmeric (haldi)",
+        "quantity": "¼ teaspoon"
+      },
+      {
+        "category": "Pantry",
+        "name": "salt",
+        "quantity": "½ to ¾ teaspoon"
+      },
+      {
+        "category": "Produce",
+        "name": "coriander leaves finely chopped",
+        "quantity": "2 tablespoon"
+      },
+      {
+        "category": "Dairy",
+        "name": "Butter",
+        "quantity": "as needed"
+      }
+    ],
+    "instructions": [
+      "Add urad dal, chana dal and methi seeds to a large bowl. Rinse them well a few times and pour lots of fresh water. To another large bowl, add rice and rinse it well few times. Pour lots of fresh water.",
+      "Soak for 4 to 5 hours. 30 mins before you begin to make the batter, rinse poha twice. Pour water enough to immerse it fully. Soak it for 30 mins.",
+      "Later drain the water from the dal completely and add to a blender jar along with poha.",
+      "Pour 1¼ cup water and salt. If you live in a hot weather then skip salt now and add after fermentation.",
+      "Blend the batter well until thick, frothy and smooth. While you blend ensure your blender doesn't heat up and get overloaded. So give a break in between and blend.",
+      "Transfer the batter to the bowl in which you soaked the dal.",
+      "Drain the water from rice completely and add it along with ½ cup water to the blender jar.",
+      "Blend slightly coarse or smooth to suit your liking. I make a slightly coarse batter of fine semolina texture. If needed pour the rest of the ¼ cup water while blending. I use up full 2 cups water mentioned in the recipe to blend.",
+      "Pour this rice batter to the dal batter & mix well. You can check the video or step by step photos to know the consistency of batter.",
+      "I divide the batter to 2 large bowls. You can do the same if you prefer to use it on 2 different days. Cover the bowl.",
+      "Allow the masala dosa batter to ferment in a warm place for about 6 to 16 hours depending on your weather. The batter has to rise and turn slightly fluffy. Do not over ferment the batter.",
+      "If you live in a cold place, then preheat the oven to 60 C or 140 F for 10 mins. Keep the batter inside with the oven light ON. Or You can also use your instant pot in the yogurt settings.",
+      "Boil or steam potatoes until just done. Do not cook them until very mushy.",
+      "Instant pot: You can pressure cook the potatoes in your IP following these timings – 5 mins if using small potatoes, 6 to 7 mins if using medium ones and 10 mins if using large potatoes.",
+      "Pressure cooking: If using a pressure cooker, then add peeled and diced potatoes to a bowl and pour water to partially cover them. Place it in the pressure cooker and let it whistle thrice.",
+      "While the potatoes boil, soak 1 teaspoon chana dal and 1 teaspoon urad dal in little hot water so they soften. After 30 mins drain the water from the dal and keep aside. When the pressure releases, remove the potatoes.",
+      "Heat a pan with oil. Then add cumin, mustard, chana dal and urad dal. Saute until the dals turns golden.",
+      "Then add onions, curry leaves and chilies. Fry until the onions turn lightly golden.",
+      "Add hing and ginger. Fry until the aroma of ginger comes out.",
+      "Crumble the potatoes and add them to the pan. Add turmeric and salt along with 2 to 3 tbsps of water. Skip pouring water if your potatoes are too moist or lightly mushy.",
+      "Saute for 2 to 3 mins. Add coriander leaves. Taste and add more salt if needed. Set this aside.",
+      "Bring the batter to consistency by adding little water. It must be of thick pouring and spreading consistency.",
+      "Heat your dosa tawa on a medium heat. If using cast iron pan, when it turns slightly hot, drizzle few drops of oil on it. Insert a fork or a butter knife into a cut onion and rub the oil all over the pan. If using cast iron griddle, you can also season it the previous night.",
+      "Check if your pan is hot enough by sprinkling little water on it. It is hot enough it will sizzle and the water evaporates. This tip is only for cast iron pan. Do not try this on a non-stick.",
+      "When the pan is hot enough, stir your batter once and take a ladle full of it.",
+      "Pour it in the center of the hot tawa. Immediately begin to spread it in a circular motion starting from the center, keep moving your hand in clockwise direction, making circles until you reach the edges of the pan. Refer video or check images below.",
+      "You can make thick or thin dosas as per your desire. If you are unable to spread the batter, it means the batter is too thick or the pan is too hot. Check the troubleshooting tips above.",
+      "Pour about half tsp oil or spread ¼ tsp soft butter around the edges & a little here and there.",
+      "Cook the masla dosa on a medium heat. Within few minutes, you can see the edges leave the pan. Flip and cook just for 1 minute.",
+      "Flip it back and cook until the base turns golden and crisp. If making mysore masala dosa, smear the red chutney (recipe below) as desired. Place the curry in one half of the dosa. Fold it or roll it.",
+      "To make the next dosa, if using cast iron pan repeat the process of rubbing with cut onion. Make sure the tawa is hot enough and not over hot otherwise it will burn the dosa. Do not cook the dosa on low heat as it makes the dosa hard.",
+      "Serve crispy masala dosa hot with coconut chutney and tiffin sambar."
+    ],
+    "cuisine": "South Indian",
+    "description": "Masala dosa are popular South Indian rice and lentil crepes stuffed with potato masala. This post shares lots of tips & tricks to make golden, crisp and aromatic dosas. If you are a beginner check the step wise pictures or video.",
+    "macros": {
+      "calories": 113,
+      "carbs": 22,
+      "fat": 1,
+      "protein": 3
+    },
+    "tags": [
+      "dosa",
+      "masala dosa",
+      "south indian",
+      "breakfast",
+      "crepe",
+      "potato masala"
+    ],
+    "type": "Breakfast",
+    "id": "b33e9f1c-5f45-4301-bd6d-0dde6d710123",
+    "image": "https://picsum.photos/400/400?random=903",
+    "localName": "Masala Dosa",
+    "healthTags": [],
+    "allergens": [],
+    "isStaple": false
+  },
+  {
+    "name": "Veg Manchurian",
+    "ingredients": [],
+    "instructions": [],
+    "cuisine": "Indian-Chinese",
+    "description": "Recipe for Veg Manchurian",
+    "macros": {},
+    "tags": [
+      "vegetarian",
+      "manchurian",
+      "indian",
+      "chinese"
+    ],
+    "type": "Snack",
+    "id": "c510ee10-6686-4399-a6a1-a25b93a09ca7",
+    "image": "https://picsum.photos/400/400?random=973",
+    "localName": "Veg Manchurian",
+    "healthTags": [],
+    "allergens": [],
+    "isStaple": false
+  },
+  {
+    "name": "Oats Upma",
+    "ingredients": [],
+    "instructions": [],
+    "cuisine": "Indian",
+    "description": "Recipe from IndianHealthyRecipes.com",
+    "tags": [
+      "vegetarian",
+      "healthy"
+    ],
+    "id": "02df1051-3a20-40a9-80e0-5195105eb73e",
+    "image": "https://picsum.photos/400/400?random=598",
+    "localName": "Oats Upma",
+    "healthTags": [],
+    "allergens": [],
+    "isStaple": false
+  }
+]

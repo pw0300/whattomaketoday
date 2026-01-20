@@ -35,7 +35,7 @@ export default async function handler(req, res) {
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({
-            model: modelName || "gemini-2.0-flash", // Updated default to latest stable
+            model: modelName || process.env.GEMINI_MODEL || "gemini-2.0-flash", // Configurable default
             generationConfig: {
                 responseMimeType: "application/json",
                 responseSchema: schema

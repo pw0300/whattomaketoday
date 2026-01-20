@@ -8,6 +8,7 @@ const LandingPage = React.lazy(() => import('./pages/LandingPage'));
 const BlogIndex = React.lazy(() => import('./pages/BlogIndex'));
 const BlogPost = React.lazy(() => import('./pages/BlogPost'));
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
+const AdminSeeder = React.lazy(() => import('./components/admin/DataSeeder').then(module => ({ default: module.DataSeeder })));
 
 // Loading Screen
 const Loading = () => (
@@ -29,6 +30,9 @@ const App: React.FC = () => {
 
             {/* App Routes */}
             <Route path="/app/*" element={<Dashboard />} />
+
+            {/* Hidden Admin Route */}
+            <Route path="/admin" element={<AdminSeeder />} />
 
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />

@@ -17,16 +17,25 @@ describe('geminiService - Cook Instructions', () => {
     });
 
     it('should generate Hindi instructions for a valid plan', async () => {
-        // Mock successful API response
+        // Mock successful API response with CoT JSON structure
         (global.fetch as any).mockResolvedValue({
             ok: true,
-            json: async () => "Namaste! Kal Lunch me Dal banao."
+            json: async () => ({
+                reasoning: "User is Vegetarian. No special allergies.",
+                whatsapp_message: "Namaste! Kal Lunch me Dal banao."
+            })
         });
 
         const mockPlan: DayPlan[] = [
             {
                 day: 'Monday',
-                lunch: { id: '1', name: 'Dal Fry', localName: 'Dal', type: 'Lunch', cuisine: 'Indian', description: '', ingredients: [], instructions: [], macros: { protein: 0, carbs: 0, fat: 0, calories: 0 }, isStaple: false },
+                lunch: {
+                    id: '1', name: 'Dal Fry', localName: 'Dal', type: 'Lunch', cuisine: 'Indian',
+                    description: '', ingredients: [], instructions: [],
+                    macros: { protein: 0, carbs: 0, fat: 0, calories: 0 },
+                    isStaple: false,
+                    image: '', tags: [], allergens: [], healthTags: []
+                },
                 dinner: null,
                 isLocked: false
             }
@@ -37,7 +46,7 @@ describe('geminiService - Cook Instructions', () => {
         expect(result).toBe("Namaste! Kal Lunch me Dal banao.");
         expect(global.fetch).toHaveBeenCalledWith('/api/generate', expect.objectContaining({
             method: 'POST',
-            body: expect.stringContaining('Dal Fry')
+            body: expect.stringContaining('Dal Fry') // Ensures the dish name is in the prompt
         }));
     });
 
@@ -51,7 +60,13 @@ describe('geminiService - Cook Instructions', () => {
         const mockPlan: DayPlan[] = [
             {
                 day: 'Monday',
-                lunch: { id: '1', name: 'Dal Fry', localName: 'Dal', type: 'Lunch', cuisine: 'Indian', description: '', ingredients: [], instructions: [], macros: { protein: 0, carbs: 0, fat: 0, calories: 0 }, isStaple: false },
+                lunch: {
+                    id: '1', name: 'Dal Fry', localName: 'Dal', type: 'Lunch', cuisine: 'Indian',
+                    description: '', ingredients: [], instructions: [],
+                    macros: { protein: 0, carbs: 0, fat: 0, calories: 0 },
+                    isStaple: false,
+                    image: '', tags: [], allergens: [], healthTags: []
+                },
                 dinner: null,
                 isLocked: false
             }

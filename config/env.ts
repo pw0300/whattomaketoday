@@ -15,29 +15,48 @@ interface EnvConfig {
     };
     gemini: {
         apiKey: string; // Server-side preferred, but falls back to VITE_ for client-only modes if necessary
+        defaultModel: string; // Default Gemini model to use
     };
 }
 
 const getReq = (key: string): string => {
-    const val = import.meta.env[key];
+    let val: string | undefined;
+
+    // Try Node.js process.env first (for scripts/SSR)
+    if (typeof process !== 'undefined' && process.env) {
+        val = process.env[key];
+    }
+
+    // Fallback to Vite import.meta.env (for Client)
+    if (!val && typeof import.meta !== 'undefined' && import.meta.env) {
+        val = import.meta.env[key];
+    }
+
     if (!val) {
         // We log a warning instead of throwing error immediately to allow 
         // "Offline Mode" or "Mock Mode" to function if designed.
-        console.warn(`[Config] Missing environment variable: ${key}`);
+        // console.warn(`[Config] Missing environment variable: ${key}`);
         return '';
     }
     return val;
 };
 
+// Get env variable with fallback default
+const getEnvWithDefault = (key: string, defaultValue: string): string => {
+    const val = getReq(key);
+    return val || defaultValue;
+};
+
 // Check for server-side key safety
 const getGeminiKey = (): string => {
-    // In a Vite client context, we usually only have access to VITE_ keys.
-    // But if we are running in a context where VITE_GEMINI_API_KEY is defined, we use it.
-    // Note: The actual secure generation happens via the proxy which uses process.env.
-    // This config is primarily for Client-side services if they ever needed it (which they shouldn't).
-
-    // However, for the sake of completeness in this config file:
-    return import.meta.env.VITE_GEMINI_API_KEY || '';
+    let key: string | undefined;
+    if (typeof process !== 'undefined' && process.env) {
+        key = process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+    }
+    if (!key && typeof import.meta !== 'undefined' && import.meta.env) {
+        key = import.meta.env.VITE_GEMINI_API_KEY;
+    }
+    return key || '';
 };
 
 export const env: EnvConfig = {
@@ -52,6 +71,7 @@ export const env: EnvConfig = {
     },
     gemini: {
         apiKey: getGeminiKey(),
+        defaultModel: getEnvWithDefault('GEMINI_MODEL', 'gemini-2.0-flash'),
     }
 };
 

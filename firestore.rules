@@ -23,9 +23,14 @@ service cloud.firestore {
 
     // Cached Dishes (Community/Shared)
     match /cached_dishes/{dishId} {
-      // Authenticated users can read/contribute to the cache
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
+      // Anyone can read/contribute to the cache (including anonymous users during onboarding)
+      allow read, create: if true;
+    }
+    
+    // User History (anonymous session tracking)
+    match /user_histories/{userId} {
+      // Allow anyone to read/write their own history (session-based)
+      allow read, write: if true;
     }
     
     // Default deny

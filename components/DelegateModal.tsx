@@ -108,33 +108,36 @@ const DelegateModal: React.FC<Props> = ({ plan, userProfile, onClose }) => {
                 {/* Action Bar */}
                 <div className="p-4 bg-gray-50 border-t border-gray-200 shrink-0 space-y-3">
 
-                    <button
-                        onClick={handleSpeak}
-                        disabled={loading || !instructions}
-                        className="w-full bg-white border-2 border-ink text-ink py-3 font-bold uppercase rounded-xl flex items-center justify-center gap-2 hover:bg-gray-100 transition shadow-sm active:translate-y-0.5"
-                    >
-                        <Volume2 size={18} />
-                        Read Aloud (TTS)
-                    </button>
-
+                    {/* Secondary Actions */}
                     <div className="flex gap-3">
+                        <button
+                            onClick={handleSpeak}
+                            disabled={loading || !instructions}
+                            className="flex-1 bg-white border border-gray-300 text-gray-600 py-2.5 text-xs font-bold uppercase rounded-lg flex items-center justify-center gap-2 hover:bg-gray-50 transition"
+                        >
+                            <Volume2 size={16} />
+                            Read Aloud
+                        </button>
+
                         <button
                             onClick={handleCopy}
                             disabled={loading || !instructions}
-                            className="flex-1 bg-white border-2 border-gray-300 text-gray-600 py-3 font-bold uppercase rounded-xl flex items-center justify-center gap-2 hover:border-gray-400 transition"
+                            className="flex-1 bg-white border border-gray-300 text-gray-600 py-2.5 text-xs font-bold uppercase rounded-lg flex items-center justify-center gap-2 hover:bg-gray-50 transition"
                         >
-                            {copied ? <Check size={18} className="text-green-500" /> : <Copy size={18} />}
+                            {copied ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
                             {copied ? "Copied" : "Copy"}
                         </button>
-                        <button
-                            onClick={handleWhatsApp}
-                            disabled={loading || !instructions}
-                            className="flex-[2] bg-[#25D366] text-white border-2 border-[#128C7E] py-3 font-bold uppercase rounded-xl flex items-center justify-center gap-2 hover:brightness-105 transition shadow-hard-sm active:shadow-none active:translate-y-0.5"
-                        >
-                            <MessageCircle size={20} fill="currentColor" />
-                            Send WhatsApp
-                        </button>
                     </div>
+
+                    {/* Primary Action */}
+                    <button
+                        onClick={handleWhatsApp}
+                        disabled={loading || !instructions}
+                        className="w-full bg-[#25D366] text-white py-3.5 font-bold uppercase rounded-xl flex items-center justify-center gap-2 hover:brightness-105 transition shadow-hard-sm active:shadow-none active:translate-y-0.5 border-2 border-[#128C7E]"
+                    >
+                        <MessageCircle size={22} fill="currentColor" />
+                        Send to Cook (WhatsApp)
+                    </button>
                 </div>
 
             </div>

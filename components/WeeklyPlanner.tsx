@@ -53,8 +53,16 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
     }
   }, [weekPlan]);
 
-  // MOAT LOGIC: Advanced Dish Selection
-  const getDishFromPool = (pool: Dish[], typeFilter?: 'Lunch' | 'Dinner', excludeIds: string[] = [], recentIds: string[] = [], prioritizePantry = false) => {
+  // MOAT LOGIC: Advanced Dish Selection with Macro Awareness
+  const getDishFromPool = (
+    pool: Dish[],
+    typeFilter?: 'Lunch' | 'Dinner',
+    excludeIds: string[] = [],
+    recentIds: string[] = [],
+    prioritizePantry = false,
+    remainingCalories?: number,
+    remainingProtein?: number
+  ) => {
     let candidates = pool.filter(d => !excludeIds.includes(d.id));
     if (typeFilter) {
       if (typeFilter === 'Lunch') {
@@ -73,16 +81,48 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
     // --- PANTRY PRIORITIZATION LOGIC ---
     if (prioritizePantry && pantryStock.length > 0) {
       const pantryPool = finalPool.filter(d => {
-        // Very basic fuzzy check: Does the dish use at least one ingredient we have?
         return d.ingredients.some(ing =>
           pantryStock.some(s => s.toLowerCase().includes(ing.name.toLowerCase()) || ing.name.toLowerCase().includes(s.toLowerCase()))
         );
       });
       if (pantryPool.length > 0) {
-        finalPool = pantryPool; // Narrow down to pantry options
+        finalPool = pantryPool;
       }
     }
 
+    // --- MACRO-AWARE SCORING ---
+    // Score dishes based on how well they fit remaining daily targets
+    if (remainingCalories !== undefined && remainingCalories > 0) {
+      const scoredPool = finalPool.map(d => {
+        let score = 100; // Base score
+
+        // Penalize dishes that exceed remaining calories
+        if (d.macros.calories > remainingCalories) {
+          score -= 30;
+        } else if (d.macros.calories <= remainingCalories * 0.6) {
+          // Bonus for dishes that fit well within budget
+          score += 10;
+        }
+
+        // Protein bonus - prioritize high protein dishes if user needs more protein
+        if (remainingProtein !== undefined && remainingProtein > 20 && d.macros.protein > 15) {
+          score += 15;
+        }
+
+        // Staple bonus
+        if (d.isStaple) score += 20;
+
+        return { dish: d, score };
+      });
+
+      // Sort by score and pick from top candidates
+      scoredPool.sort((a, b) => b.score - a.score);
+      const topCandidates = scoredPool.slice(0, Math.max(3, Math.floor(scoredPool.length * 0.3)));
+      const picked = topCandidates[Math.floor(Math.random() * topCandidates.length)];
+      return picked?.dish || null;
+    }
+
+    // Fallback: Original weighted random selection
     const weightedPool: Dish[] = [];
     finalPool.forEach(d => {
       weightedPool.push(d);
@@ -91,7 +131,7 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
     return weightedPool[Math.floor(Math.random() * weightedPool.length)];
   };
 
-  // The Original "Generate Whole Week"
+  // The Original "Generate Whole Week" - Now Macro-Aware
   const generatePlan = (targetMode: VibeMode) => {
     setRegenerating(true);
     setTimeout(() => {
@@ -99,6 +139,8 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
       if (pool.length < 5) onRequestMoreDishes(targetMode);
 
       const recentHistory: string[] = [];
+      const dailyCalorieTarget = userProfile.dailyTargets.calories || 2000;
+      const dailyProteinTarget = userProfile.dailyTargets.protein || 50;
 
       const newPlan: DayPlan[] = weekPlan.length > 0
         ? weekPlan.map((existingDay, idx) => {
@@ -108,16 +150,32 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
             return existingDay;
           }
 
-          const lunch = getDishFromPool(pool, 'Lunch', [], recentHistory);
+          // Track remaining budget for the day (split ~40% lunch, ~60% dinner)
+          let remainingCals = dailyCalorieTarget;
+          let remainingProtein = dailyProteinTarget;
+
+          const lunch = getDishFromPool(
+            pool, 'Lunch', [], recentHistory, false,
+            Math.floor(dailyCalorieTarget * 0.4), // ~40% of daily cals for lunch
+            Math.floor(dailyProteinTarget * 0.4)
+          );
           if (lunch) {
             recentHistory.push(lunch.id);
+            remainingCals -= lunch.macros.calories || 0;
+            remainingProtein -= lunch.macros.protein || 0;
             if (recentHistory.length > 3) recentHistory.shift();
           }
-          const dinner = getDishFromPool(pool, 'Dinner', lunch ? [lunch.id] : [], recentHistory);
+
+          const dinner = getDishFromPool(
+            pool, 'Dinner', lunch ? [lunch.id] : [], recentHistory, false,
+            remainingCals, // Remaining budget for dinner
+            remainingProtein
+          );
           if (dinner) {
             recentHistory.push(dinner.id);
             if (recentHistory.length > 3) recentHistory.shift();
           }
+
           return { day: DAYS_OF_WEEK[idx], lunch, dinner, isLocked: false };
         })
         : DAYS_OF_WEEK.map(day => {
@@ -130,7 +188,7 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
     }, 800);
   };
 
-  // --- NEW FEATURE: MAGIC FILL (Autopilot) ---
+  // --- NEW FEATURE: MAGIC FILL (Autopilot) - Now Macro-Aware ---
   const handleMagicFill = () => {
     setRegenerating(true);
     setTimeout(() => {
@@ -143,6 +201,8 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
 
       const todayIdx = new Date().getDay() - 1; // 0=Mon
       const safeTodayIdx = todayIdx < 0 ? 0 : todayIdx;
+      const dailyCalorieTarget = userProfile.dailyTargets.calories || 2000;
+      const dailyProteinTarget = userProfile.dailyTargets.protein || 50;
 
       const newPlan = [...weekPlan];
       const recentHistory: string[] = [];
@@ -152,11 +212,26 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
         if (i >= safeTodayIdx && i <= safeTodayIdx + 2) {
           if (newPlan[i].isLocked) continue;
 
-          // Prioritize Pantry for Magic Fill
-          const lunch = getDishFromPool(pool, 'Lunch', [], recentHistory, true);
-          if (lunch) recentHistory.push(lunch.id);
+          let remainingCals = dailyCalorieTarget;
+          let remainingProtein = dailyProteinTarget;
 
-          const dinner = getDishFromPool(pool, 'Dinner', lunch ? [lunch.id] : [], recentHistory, true);
+          // Prioritize Pantry for Magic Fill + Macro awareness
+          const lunch = getDishFromPool(
+            pool, 'Lunch', [], recentHistory, true,
+            Math.floor(dailyCalorieTarget * 0.4),
+            Math.floor(dailyProteinTarget * 0.4)
+          );
+          if (lunch) {
+            recentHistory.push(lunch.id);
+            remainingCals -= lunch.macros.calories || 0;
+            remainingProtein -= lunch.macros.protein || 0;
+          }
+
+          const dinner = getDishFromPool(
+            pool, 'Dinner', lunch ? [lunch.id] : [], recentHistory, true,
+            remainingCals,
+            remainingProtein
+          );
           if (dinner) recentHistory.push(dinner.id);
 
           newPlan[i] = { ...newPlan[i], lunch, dinner };
@@ -489,12 +564,17 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
       <div className="absolute bottom-24 right-6 flex flex-col gap-4 items-end pointer-events-none">
         <div className="flex flex-col gap-4 pointer-events-auto">
           {/* DELEGATE BUTTON */}
+          {/* DELEGATE BUTTON */}
+          {/* DELEGATE BUTTON - WHATSAPP STYLE */}
           <button
             onClick={() => setShowDelegateModal(true)}
-            className="bg-brand-500 text-white w-14 h-14 flex items-center justify-center border-2 border-ink shadow-hard hover:translate-y-1 hover:shadow-none transition-all rounded-full"
-            title="Delegate to Cook"
+            className="group bg-[#25D366] text-white px-4 py-3 h-14 flex items-center justify-center gap-2 border-2 border-[#128C7E] shadow-hard hover:translate-y-1 hover:shadow-none transition-all rounded-full hover:brightness-105"
+            title="Send Instructions to Cook"
           >
-            <Mic size={24} />
+            <MessageCircle size={24} fill="white" className="drop-shadow-sm" />
+            <span className="font-bold uppercase text-[12px] tracking-wide">
+              WhatsApp Cook
+            </span>
           </button>
 
           {/* SHARELINK BUTTON */}

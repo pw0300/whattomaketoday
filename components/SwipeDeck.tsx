@@ -79,6 +79,26 @@ const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onS
     const isDeckEmpty = !currentDish || activeIndex >= safeDishes.length;
     const goal = 7;
 
+    // Track shown dishes for deduplication
+    useEffect(() => {
+        const trackDish = async () => {
+            if (!currentDish) return;
+
+            // Get userId from localStorage (set by Dashboard)
+            const userId = localStorage.getItem('session_id');
+            if (!userId) return;
+
+            try {
+                const { trackShownDish } = await import('../services/userHistoryService');
+                await trackShownDish(userId, currentDish);
+            } catch (e) {
+                console.warn('[SwipeDeck] Failed to track shown dish:', e);
+            }
+        };
+
+        trackDish();
+    }, [currentDish?.id]); // Track when dish changes
+
     const getPantryMatch = (dish: Dish) => {
         if (!dish || !dish.ingredients) return 0;
         const normalize = (s: string) => s.toLowerCase().trim();

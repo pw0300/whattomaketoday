@@ -8,8 +8,10 @@
 ## Strategy & Selection
 | Feature | Recommended Model | Implementation Status | Why? |
 | :--- | :--- | :--- | :--- |
-| **Recipe Generation** | `gemini-2.0-flash` | ✅ Live | Requires speed and structured JSON output. |
-| **Cook Instructions** | `gemini-2.0-pro` | ✅ Live | Requires *nuance* for "Hinglish" translation. |
+| Feature | Recommended Model | Implementation Status | Why? |
+| :--- | :--- | :--- | :--- |
+| **Recipe Generation** | `gemini-2.0-flash` | ✅ Live | Fast, cheap, reliable for standard JSON. |
+| **Cook Instructions** | `gemini-3.0-flash` | ✅ Live | **Reasoning Model**. Required for complex constraint analysis (Diabetes/Allergy). |
 | **Pantry Analysis** | `gemini-2.0-flash` | ⏳ Planned | Multimodal capabilities. |
 
 ## Deprecation & Failover Plan

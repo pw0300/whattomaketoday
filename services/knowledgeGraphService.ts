@@ -1,4 +1,4 @@
-import { Allergen } from '../types';
+import { Allergen } from '../types.ts';
 
 // Import JSON data
 import ingredientsMaster from '../data/ingredients_master_list.json';
@@ -17,6 +17,14 @@ export interface IngredientNode {
     substitutes: string[];
     commonIn: string[];
     nutritionProfile: string;
+    // New Sensory & Health Attributes (Phase 8)
+    flavorProfile?: 'Sweet' | 'Sour' | 'Salty' | 'Bitter' | 'Umami' | 'Spicy' | 'Savory' | 'Neutral';
+    texture?: 'Crunchy' | 'Soft' | 'Creamy' | 'Chewy' | 'Liquid' | 'Firm';
+    glycemicIndex?: 'Low' | 'Medium' | 'High';
+    storageMetrics?: {
+        shelfLife: string; // e.g. "1 week"
+        method: 'Pantry' | 'Fridge' | 'Freezer';
+    };
 }
 
 export interface DishTemplate {
@@ -125,6 +133,91 @@ class KnowledgeGraphService {
      */
     logUsage(action: string, ingredientName?: string) {
         console.log(`[KG Telemetry] ${action}${ingredientName ? ` - ${ingredientName}` : ''}`);
+    }
+
+    /**
+     * LEARN: Extract new ingredients from a generated Dish
+     * In a full implementation, this could write to a Firestore 'pending_ingredients' collection.
+     */
+    learnFromDish(dish: { ingredients: { name: string, category: string }[] }) {
+        dish.ingredients.forEach(ing => {
+            if (!this.validateIngredient(ing.name)) {
+                // Determine inferred details (basic heuristic)
+                const inferredAllergen: Allergen[] = [];
+                if (ing.category === 'Dairy') inferredAllergen.push(Allergen.Dairy);
+                if (ing.category === 'Protein' && (ing.name.toLowerCase().includes('nut') || ing.name.toLowerCase().includes('cashew'))) inferredAllergen.push(Allergen.Nuts);
+
+                console.log(`[KG Learning] Learned new ingredient from Recipe: ${ing.name} (${ing.category})`);
+
+                // Add to temporary in-memory graph (persists for session)
+                this.ingredients[this.normalizeKey(ing.name)] = {
+                    displayName: ing.name,
+                    category: ing.category,
+                    tier: 'Exotic', // Default new items to Exotic
+                    allergens: inferredAllergen, // Inferred
+                    seasonality: 'Year-round',
+                    substitutes: [],
+                    commonIn: [],
+                    nutritionProfile: 'unknown'
+                };
+            }
+        });
+    }
+
+    /**
+     * STRICT FILTER: Validate a full dish against user constraints using the Graph
+     */
+    isDishContextSafe(dish: { ingredients: { name: string }[] }, userAllergens: Allergen[]): boolean {
+        // 1. Check direct ingredients
+        for (const ing of dish.ingredients) {
+            const node = this.getIngredient(ing.name);
+            if (node) {
+                const conflicts = node.allergens.filter(a => userAllergens.includes(a as Allergen));
+                if (conflicts.length > 0) {
+                    console.log(`[KG Guard] Unsafe Dish: Ingredient '${ing.name}' contains ${conflicts.join(', ')}`);
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    /**
+     * SMART GENERATION: Suggest valid dishes from the graph based on user profile
+     * This allows us to "Seed" the LLM with a known-valid dish name, reducing hallucinations/retries.
+     */
+    suggestDishes(profile: { dietaryPreference: string, allergens: string[], cuisines?: string[] }): DishTemplate[] {
+        return Object.values(this.dishTemplates).filter(dish => {
+            // 1. Check Diet
+            if (profile.dietaryPreference !== 'Any') {
+                // Map 'Vegetarian' -> 'Vegetarian', 'Vegan', etc.
+                // Simple exact match or "compatible" logic
+                if (profile.dietaryPreference === 'Vegetarian' && !dish.dietaryTags.includes('Vegetarian') && !dish.dietaryTags.includes('Vegan')) return false;
+                if (profile.dietaryPreference === 'Vegan' && !dish.dietaryTags.includes('Vegan')) return false;
+                if (profile.dietaryPreference === 'Non-Vegetarian') { /* Any is fine */ }
+            }
+
+            // 2. Check Allergens (Deep check on essential ingredients)
+            // If any essential ingredient has a banned allergen, exclude dish
+            const hasAllergen = dish.essentialIngredients.some(ingName => {
+                const node = this.getIngredient(ingName);
+                if (!node) return false;
+                return node.allergens.some(a => profile.allergens.includes(a));
+            });
+
+            if (hasAllergen) return false;
+
+            // 3. Check Cuisine preference (if specified)
+            if (profile.cuisines && profile.cuisines.length > 0) {
+                const matchesCuisine = profile.cuisines.some(c =>
+                    dish.cuisine?.toLowerCase().includes(c.toLowerCase()) ||
+                    c.toLowerCase().includes(dish.cuisine?.toLowerCase() || '')
+                );
+                if (!matchesCuisine) return false;
+            }
+
+            return true;
+        });
     }
 }
 

@@ -81,6 +81,13 @@ export interface Dish {
   isStaple?: boolean;
   userNotes?: string;
   servings?: number;
+  prepTime?: number; // Minutes
+  matchScore?: number; // 0-100 likelihood of user liking it
+  generatedAt?: number; // Timestamp
+  // New Sensory & Health Attributes
+  flavorProfile?: 'Sweet' | 'Sour' | 'Salty' | 'Bitter' | 'Umami' | 'Spicy' | 'Savory' | 'Balanced';
+  textureProfile?: 'Crunchy' | 'Soft' | 'Creamy' | 'Chewy' | 'Soup/Liquid' | 'Dry';
+  glycemicIndex?: 'Low' | 'Medium' | 'High';
 }
 
 export enum SwipeDirection {
@@ -99,6 +106,7 @@ export interface DayPlan {
 export enum AppView {
   Intro = 'Intro',
   Onboarding = 'Onboarding',
+  Curating = 'Curating', // NEW: Shows loading progress after onboarding
   Swipe = 'Swipe',
   Planner = 'Planner',
   Shopping = 'Shopping',

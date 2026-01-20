@@ -305,7 +305,7 @@ export const STARTER_RECIPES: Dish[] = [
         id: 'snack-poha', name: 'Poha', localName: 'पोहा',
         description: 'Flattened rice with peanuts', cuisine: 'Central Indian', type: 'Breakfast',
         image: 'https://picsum.photos/400/400?random=35', tags: ['Vegetarian', 'Vegan', 'Quick'],
-        allergens: [Allergen.Peanuts], macros: { calories: 180, protein: 4, carbs: 32, fat: 5 },
+        allergens: [Allergen.Nuts], macros: { calories: 180, protein: 4, carbs: 32, fat: 5 },
         ingredients: [{ name: 'Poha', quantity: '1 cup', category: 'Pantry' }], instructions: [],
         healthTags: ['Gluten-Free']
     },
@@ -445,7 +445,7 @@ export const STARTER_RECIPES: Dish[] = [
  * @param profile User dietary preferences and allergens
  * @returns Safe, relevant recipes
  */
-export function filterStarterRecipes(profile: { dietaryPreference: DietaryPreference; allergens: Allergen[] }): Dish[] {
+export function filterStarterRecipes(profile: { dietaryPreference: DietaryPreference; allergens: Allergen[]; cuisines?: string[] }): Dish[] {
     return STARTER_RECIPES.filter(dish => {
         // Check allergens - dish must NOT contain user's allergens
         const hasUnsafeAllergen = profile.allergens.some(allergen => dish.allergens.includes(allergen));
@@ -454,6 +454,15 @@ export function filterStarterRecipes(profile: { dietaryPreference: DietaryPrefer
         // Check dietary preference
         if (profile.dietaryPreference === 'Vegetarian' && dish.tags.includes('Non-Veg')) return false;
         if (profile.dietaryPreference === 'Vegan' && (dish.tags.includes('Non-Veg') || dish.allergens.includes(Allergen.Dairy))) return false;
+
+        // Check cuisine preference (if any selected)
+        if (profile.cuisines && profile.cuisines.length > 0) {
+            const matchesCuisine = profile.cuisines.some(c =>
+                dish.cuisine.toLowerCase().includes(c.toLowerCase()) ||
+                c.toLowerCase().includes(dish.cuisine.toLowerCase())
+            );
+            if (!matchesCuisine) return false;
+        }
 
         return true;
     });
