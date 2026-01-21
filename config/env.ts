@@ -50,12 +50,16 @@ const getEnvWithDefault = (key: string, defaultValue: string): string => {
 // Check for server-side key safety
 const getGeminiKey = (): string => {
     let key: string | undefined;
+
+    // ONLY allow access via process.env (Server-Side / Function Context)
+    // We STRICTLY disable client-side bundling of this key.
     if (typeof process !== 'undefined' && process.env) {
-        key = process.env.VITE_GEMINI_API_KEY || process.env.GEMINI_API_KEY;
+        key = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
     }
-    if (!key && typeof import.meta !== 'undefined' && import.meta.env) {
-        key = import.meta.env.VITE_GEMINI_API_KEY;
-    }
+
+    // Explicitly REMOVED: import.meta.env check
+    // This prevents Vite from statically replacing this variable and leaking it in the build.
+
     return key || '';
 };
 
