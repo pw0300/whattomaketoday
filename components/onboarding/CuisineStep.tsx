@@ -112,11 +112,22 @@ const CuisineStep: React.FC<Props> = ({ profile, onProfileChange, onNext, onBack
                                 <Plus size={20} />
                             </button>
                         </div>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-2 min-h-[32px]">
                             {profile.cuisines.filter(c => !CUISINE_SUGGESTIONS.includes(c)).map(c => (
-                                <span key={c} className="bg-[#1A4D2E]/10 px-2 py-1 rounded-md text-xs font-bold text-[#1A4D2E] flex items-center gap-1">
-                                    {c} <button onClick={() => toggleCuisine(c)}><X size={10} /></button>
-                                </span>
+                                <motion.span
+                                    key={c}
+                                    initial={{ opacity: 0, scale: 0.8 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    className="bg-[#1A4D2E] text-[#F8F5F2] px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-2 shadow-sm"
+                                >
+                                    {c}
+                                    <button
+                                        onClick={() => toggleCuisine(c)}
+                                        className="hover:bg-white/20 rounded-full p-0.5 transition-colors"
+                                    >
+                                        <X size={12} />
+                                    </button>
+                                </motion.span>
                             ))}
                         </div>
                     </div>
@@ -141,11 +152,23 @@ const CuisineStep: React.FC<Props> = ({ profile, onProfileChange, onNext, onBack
                                 <Heart size={20} />
                             </button>
                         </div>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-2 min-h-[32px]">
                             {profile.likedDishes?.map((d, i) => (
-                                <span key={i} className="bg-red-50 text-red-800 border border-red-100 px-2 py-1 rounded-md text-xs font-bold flex items-center gap-1">
-                                    {d} <button onClick={() => removeLikedDish(i)}><X size={10} /></button>
-                                </span>
+                                <motion.span
+                                    key={`${d}-${i}`}
+                                    initial={{ opacity: 0, scale: 0.8 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: 0.8 }}
+                                    className="bg-[#F9C74F]/20 border border-[#F9C74F]/50 text-[#1A4D2E] px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-2 shadow-sm"
+                                >
+                                    {d}
+                                    <button
+                                        onClick={() => removeLikedDish(i)}
+                                        className="hover:bg-[#1A4D2E]/10 rounded-full p-0.5 transition-colors"
+                                    >
+                                        <X size={12} />
+                                    </button>
+                                </motion.span>
                             ))}
                         </div>
                     </div>

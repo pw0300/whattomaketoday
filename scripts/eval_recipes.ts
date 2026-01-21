@@ -275,6 +275,38 @@ async function runEval() {
     const groceryPassed = tomatoTotal === 5 && onionTotal === 3;
     console.log(`   Grocery Aggregation: ${groceryPassed ? "PASSED" : "FAILED"}`);
 
+    // === Phase 4: Health Score Verification ===
+    console.log("\n--- Phase 4: Health Score Heuristic ---");
+    const { calculateHealthScore } = await import("../utils/healthScoring.ts");
+
+    const healthTests = [
+        {
+            name: "Perfect Salad",
+            dish: { macros: { calories: 400, protein: 25 }, healthTags: ["High Fiber", "Low GI", "Heart Healthy"] },
+            expectedMin: 85
+        },
+        {
+            name: "Sugary Donut",
+            dish: { macros: { calories: 900, protein: 2 }, healthTags: ["High GI", "Warning: High Sugar"] },
+            expectedMax: 40
+        },
+        {
+            name: "Balanced Meal",
+            dish: { macros: { calories: 500, protein: 15 }, healthTags: ["Balanced"] },
+            expectedRange: [75, 85]
+        }
+    ];
+
+    healthTests.forEach(test => {
+        const score = calculateHealthScore(test.dish as any);
+        let status = "✅";
+        if (test.expectedMin && score < test.expectedMin) status = "❌ Too Low";
+        if (test.expectedMax && score > test.expectedMax) status = "❌ Too High";
+        if (test.expectedRange && (score < test.expectedRange[0] || score > test.expectedRange[1])) status = "❌ Out of Range";
+
+        console.log(`   ${status} ${test.name}: Score ${score} (Target: ${test.expectedMin ? '>' + test.expectedMin : test.expectedMax ? '<' + test.expectedMax : test.expectedRange?.join('-')})`);
+    });
+
     // --- Report ---
     const validResults = results.filter(r => r.valid && !r.error);
 

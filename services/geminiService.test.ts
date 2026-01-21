@@ -214,27 +214,26 @@ describe('buildRecipePrompt - Recipe Generation Prompt', () => {
 
     it('should include cuisine and technique in prompt', () => {
         const prompt = buildRecipePrompt('');
-        expect(prompt).toContain('recipe');
-        expect(prompt).toContain('cuisine');
+        // e.g. "Italian grilled dish"
+        expect(prompt).toMatch(/(Italian|Thai|Indian|Chinese|Mediterranean)/);
+        expect(prompt).toMatch(/(grilled|roasted|stir-fried|steamed|sautéed)/);
     });
 
-    it('should include JSON schema example', () => {
+    it('should NOT include verbose JSON schema in prompt text (handled by API)', () => {
         const prompt = buildRecipePrompt('');
-        expect(prompt).toContain('Return JSON');
-        expect(prompt).toContain('name');
-        expect(prompt).toContain('description');
+        expect(prompt).not.toContain('Return JSON');
+        expect(prompt).not.toContain('macros');
     });
 
-    it('should include rules section', () => {
+    it('should NOT include rules section (handled by schema)', () => {
         const prompt = buildRecipePrompt('');
-        expect(prompt).toContain('RULES');
-        expect(prompt).toContain('Real dish name');
+        expect(prompt).not.toContain('RULES');
     });
 
     it('should work with empty constraints', () => {
         const prompt = buildRecipePrompt('');
         expect(prompt).not.toContain('CRITICAL:');
-        expect(prompt).toContain('Generate ONE');
+        expect(prompt).toContain('dish');
     });
 
     it('should use user cuisines when provided', () => {
@@ -247,20 +246,15 @@ describe('buildRecipePrompt - Recipe Generation Prompt', () => {
 
 describe('buildSeededRecipePrompt - Seeded Recipe Prompt', () => {
 
-    it('should include specific dish name', () => {
+    it('should include specific dish name quoted', () => {
         const prompt = buildSeededRecipePrompt('Butter Chicken', '');
-        expect(prompt).toContain('Butter Chicken');
-        expect(prompt).toContain('Generate the specific recipe for: "Butter Chicken"');
+        expect(prompt).toContain('"Butter Chicken"');
+        expect(prompt).toContain('Complete all schema fields');
     });
 
     it('should include constraints when provided', () => {
         const prompt = buildSeededRecipePrompt('Dal Makhani', 'Diet: Vegetarian');
         expect(prompt).toContain('CRITICAL INSTRUCTIONS');
         expect(prompt).toContain('Diet: Vegetarian');
-    });
-
-    it('should require name field to match dish name', () => {
-        const prompt = buildSeededRecipePrompt('Paneer Tikka', '');
-        expect(prompt).toContain('name: Must be "Paneer Tikka"');
     });
 });

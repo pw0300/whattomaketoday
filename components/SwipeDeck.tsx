@@ -152,8 +152,8 @@ const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onS
                     </div>
                 </div>
                 <div className="flex bg-white p-1 rounded-full shadow-sm border border-gray-100">
-                    <button onClick={() => setViewMode('deck')} className={`p-2 rounded-full transition-all duration-300 ${viewMode === 'deck' ? 'bg-ink text-white shadow-md transform scale-105' : 'text-ink-light hover:bg-gray-50'}`}><Layers size={16} /></button>
-                    <button onClick={() => setViewMode('registry')} className={`p-2 rounded-full transition-all duration-300 ${viewMode === 'registry' ? 'bg-ink text-white shadow-md transform scale-105' : 'text-ink-light hover:bg-gray-50'}`}><Grid3X3 size={16} /></button>
+                    <button onClick={() => setViewMode('deck')} className={`p-2 rounded-full transition-all duration-300 ${viewMode === 'deck' ? 'bg-ink text-white shadow-md transform scale-105' : 'text-ink-light hover:bg-gray-50'}`} title="Swipe View"><Layers size={16} /></button>
+                    <button onClick={() => setViewMode('registry')} className={`p-2 rounded-full transition-all duration-300 ${viewMode === 'registry' ? 'bg-ink text-white shadow-md transform scale-105' : 'text-ink-light hover:bg-gray-50'}`} title="Grid View"><Grid3X3 size={16} /></button>
                 </div>
             </div>
 
@@ -261,9 +261,22 @@ const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onS
                                         <div className="absolute top-10 -left-10 w-32 h-32 bg-accent-yellow/10 rounded-full blur-3xl" />
 
                                         <div className="flex justify-between items-start relative z-10">
-                                            <span className="px-3 py-1 bg-white/60 backdrop-blur-md rounded-full text-[10px] uppercase font-bold tracking-wider text-ink-light shadow-sm">
-                                                {currentDish.type}
-                                            </span>
+                                            <div className="flex gap-2 items-center">
+                                                <span className="px-3 py-1 bg-white/60 backdrop-blur-md rounded-full text-[10px] uppercase font-bold tracking-wider text-ink-light shadow-sm">
+                                                    {currentDish.type}
+                                                </span>
+                                                {/* Health Score Badge */}
+                                                {(currentDish.macros || currentDish.healthTags) && (() => {
+                                                    const { calculateHealthScore, getHealthColor } = require('../utils/healthScoring');
+                                                    const score = calculateHealthScore(currentDish);
+                                                    const color = getHealthColor(score);
+                                                    return (
+                                                        <span className={`px-3 py-1 bg-white/60 backdrop-blur-md rounded-full text-[10px] uppercase font-bold tracking-wider shadow-sm flex items-center gap-1 ${color}`}>
+                                                            <Heart size={10} fill="currentColor" /> {score}
+                                                        </span>
+                                                    );
+                                                })()}
+                                            </div>
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); onModify(currentDish); }}
                                                 className="w-8 h-8 flex items-center justify-center bg-white rounded-full shadow-sm hover:scale-110 transition-transform text-ink-light"
@@ -285,11 +298,28 @@ const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onS
                                             <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide border shadow-sm ${currentMatch >= 75 ? 'bg-green-50 border-green-100 text-green-700' : 'bg-gray-50 border-gray-100 text-gray-500'}`}>
                                                 <PackageCheck size={12} /> {currentMatch}% Pantry
                                             </div>
-                                            {currentDish.healthTags?.slice(0, 2).map(tag => (
-                                                <span key={tag} className="px-3 py-1.5 bg-blue-50 border border-blue-100 text-blue-700 text-[10px] font-bold uppercase rounded-full whitespace-nowrap shadow-sm">
-                                                    {tag}
-                                                </span>
-                                            ))}
+                                            {currentDish.healthTags?.slice(0, 3).map(tag => {
+                                                let style = "bg-blue-50 border-blue-100 text-blue-700";
+                                                let icon = null;
+                                                const lowerTag = tag.toLowerCase();
+
+                                                if (lowerTag.includes('diabetes') || lowerTag.includes('low gi') || lowerTag.includes('safe')) {
+                                                    style = "bg-green-50 border-green-100 text-green-700";
+                                                    icon = "🟢";
+                                                } else if (lowerTag.includes('high gi') || lowerTag.includes('warning') || lowerTag.includes('avoid')) {
+                                                    style = "bg-red-50 border-red-100 text-red-700";
+                                                    icon = "🔴";
+                                                } else if (lowerTag.includes('protein') || lowerTag.includes('muscle')) {
+                                                    style = "bg-orange-50 border-orange-100 text-orange-700";
+                                                    icon = "💪";
+                                                }
+
+                                                return (
+                                                    <span key={tag} className={`px-3 py-1.5 ${style} border text-[10px] font-bold uppercase rounded-full whitespace-nowrap shadow-sm flex items-center gap-1`}>
+                                                        {icon} {tag}
+                                                    </span>
+                                                );
+                                            })}
                                         </div>
 
                                         <div className="flex-1 overflow-y-auto no-scrollbar mask-gradient-to-b pr-2">

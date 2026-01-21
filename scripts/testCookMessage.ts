@@ -71,7 +71,7 @@ async function runTest() {
     }`;
 
     const model = genAI.getGenerativeModel({
-        model: "gemini-2.0-flash", // Using flash for test script
+        model: "gemini-3-flash-preview", // Using Gemini 3.0 Preview for test script
         generationConfig: {
             responseMimeType: "application/json",
             responseSchema: {

@@ -173,6 +173,16 @@ const Dashboard: React.FC = () => {
             import('../services/userHistoryService').then(({ trackLikedDish }) => {
                 if (userId) trackLikedDish(userId, dish);
             });
+
+            // HYDRATION: If dish lacks ingredients (Light Mode), fetch them now
+            if (!dish.ingredients || dish.ingredients.length === 0) {
+                import('../services/geminiService').then(({ enrichDishDetails }) => {
+                    enrichDishDetails(dish, userProfile || undefined).then(fullDish => {
+                        console.log("[Hydration] Fetched details for:", fullDish.name);
+                        setApprovedDishes(prev => prev.map(d => d.id === dish.id ? { ...fullDish, isStaple: d.isStaple } : d));
+                    });
+                });
+            }
         } else if (direction === SwipeDirection.Left) {
             // Track Dislike
             import('../services/userHistoryService').then(({ trackDislikedDish }) => {

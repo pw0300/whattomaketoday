@@ -683,8 +683,8 @@ export const generateCookInstructions = async (plan: DayPlan[], userProfile?: Us
       }
     };
 
-    // Use gemini-3.0-flash (Superior reasoning for complex personalization)
-    const result = await secureGenerate(prompt, COT_SCHEMA, 'gemini-3.0-flash');
+    // Use gemini-3-flash-preview (State of the Art Speed & Reasoning)
+    const result = await secureGenerate(prompt, COT_SCHEMA, 'gemini-3-flash-preview');
 
     // Log reasoning for debug/transparency
     if (result?.reasoning) console.log("[AI Reasoning]:", result.reasoning);
