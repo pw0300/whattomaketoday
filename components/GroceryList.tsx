@@ -101,20 +101,14 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
   };
 
 
-  // Group ingredients by category for display
+  // Group and AGGREGATE ingredients by category for display
   const categorizedIngredients = useMemo<Record<string, GroceryItem[]>>(() => {
-    const agg: Record<string, GroceryItem[]> = {
-      Produce: [], Protein: [], Dairy: [], Pantry: [], Spices: [], Custom: []
-    };
+    // First, collect all ingredients with sources
+    const rawItems: GroceryItem[] = [];
 
     const processIngredient = (ing: Ingredient, sourceDish: string, servings: number) => {
       const scaledQty = getScaledQuantity(ing.quantity, servings);
-      const item: GroceryItem = { ...ing, quantity: scaledQty, source: sourceDish };
-      if (agg[ing.category]) {
-        agg[ing.category].push(item);
-      } else {
-        agg['Pantry'].push(item);
-      }
+      rawItems.push({ ...ing, quantity: scaledQty, source: sourceDish });
     };
 
     plan.forEach(day => {
@@ -122,7 +116,70 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
       day.dinner?.ingredients.forEach(i => processIngredient(i, day.dinner!.name, day.dinner!.servings || 1));
     });
 
-    // Add custom items to "Misc"
+    // AGGREGATION: Group by normalized ingredient name
+    const aggregated = new Map<string, {
+      item: GroceryItem,
+      totalQty: number,
+      unit: string,
+      sources: { dish: string, qty: string }[]
+    }>();
+
+    rawItems.forEach(item => {
+      const key = item.name.toLowerCase().trim();
+
+      // Parse quantity: extract number and unit
+      const qtyMatch = item.quantity.match(/^([\d½¼¾⅓⅔\s.]+)\s*(.*)$/);
+      let numericQty = 1;
+      let unit = item.quantity;
+
+      if (qtyMatch) {
+        const numPart = qtyMatch[1].trim()
+          .replace('½', '.5').replace('¼', '.25').replace('¾', '.75')
+          .replace('⅓', '.33').replace('⅔', '.66');
+        numericQty = parseFloat(numPart) || 1;
+        unit = qtyMatch[2] || 'unit';
+      }
+
+      if (aggregated.has(key)) {
+        const existing = aggregated.get(key)!;
+        existing.totalQty += numericQty;
+        existing.sources.push({ dish: item.source || 'Unknown', qty: item.quantity });
+      } else {
+        aggregated.set(key, {
+          item: { ...item },
+          totalQty: numericQty,
+          unit,
+          sources: [{ dish: item.source || 'Unknown', qty: item.quantity }]
+        });
+      }
+    });
+
+    // Convert aggregated map to categorized structure
+    const agg: Record<string, GroceryItem[]> = {
+      Produce: [], Protein: [], Dairy: [], Pantry: [], Spices: [], Custom: []
+    };
+
+    aggregated.forEach(({ item, totalQty, unit, sources }) => {
+      // Format aggregated quantity
+      const formattedQty = Number.isInteger(totalQty) ? totalQty.toString() : totalQty.toFixed(1);
+      const aggregatedItem: GroceryItem = {
+        ...item,
+        quantity: `${formattedQty} ${unit}`,
+        source: sources.length > 1
+          ? `${sources.length} dishes`
+          : sources[0]?.dish || 'Unknown',
+        // Store sources for dropdown (using originalString field)
+        originalString: JSON.stringify(sources)
+      };
+
+      if (agg[item.category]) {
+        agg[item.category].push(aggregatedItem);
+      } else {
+        agg['Pantry'].push(aggregatedItem);
+      }
+    });
+
+    // Add custom items to "Custom"
     customItems.forEach(item => {
       agg['Custom'].push({ name: item, quantity: '1 unit', category: 'Pantry', source: 'Manual Entry' });
     });
@@ -218,17 +275,45 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
                         {isChecked ? <CheckSquare size={18} strokeWidth={2} /> : <Square size={18} strokeWidth={2} />}
                       </div>
                       <div className="flex-1 leading-tight flex justify-between items-start">
-                        <div>
+                        <div className="flex-1">
                           <p className={`font-bold text-sm ${isChecked ? 'line-through decoration-2 decoration-ink text-gray-500' : 'text-ink'}`}>
                             {item.name}
                           </p>
                           {!isCustom && (
                             <div className="flex flex-col gap-0.5 mt-0.5">
                               <span className="font-mono text-xs text-gray-700 font-bold">{item.quantity}</span>
-                              {/* CONTEXT: Show which dish this is for */}
-                              <span className="text-[9px] uppercase text-gray-400 flex items-center gap-1">
-                                <Utensils size={8} /> {item.source}
-                              </span>
+                              {/* CONTEXT: Show source(s) with expandable breakdown */}
+                              {(() => {
+                                // Parse sources from originalString
+                                let sources: { dish: string, qty: string }[] = [];
+                                try {
+                                  if (item.originalString) {
+                                    sources = JSON.parse(item.originalString);
+                                  }
+                                } catch { sources = []; }
+
+                                const hasMultipleSources = sources.length > 1;
+
+                                return hasMultipleSources ? (
+                                  <details className="text-[9px] uppercase text-gray-400 cursor-pointer">
+                                    <summary className="flex items-center gap-1 hover:text-gray-600">
+                                      <Utensils size={8} /> {sources.length} dishes (click to expand)
+                                    </summary>
+                                    <ul className="mt-1 ml-3 space-y-0.5 text-gray-500">
+                                      {sources.map((s, i) => (
+                                        <li key={i} className="flex items-center gap-1">
+                                          <span className="text-[8px]">•</span>
+                                          <span>{s.dish}: {s.qty}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </details>
+                                ) : (
+                                  <span className="text-[9px] uppercase text-gray-400 flex items-center gap-1">
+                                    <Utensils size={8} /> {item.source}
+                                  </span>
+                                );
+                              })()}
                             </div>
                           )}
                         </div>

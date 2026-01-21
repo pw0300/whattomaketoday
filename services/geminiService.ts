@@ -127,6 +127,8 @@ export const LIGHT_DISH_SCHEMA = {
     primaryIngredient: { type: Type.STRING },
     cuisine: { type: Type.STRING },
     type: { type: Type.STRING, enum: ['Breakfast', 'Lunch', 'Dinner', 'Snack'] },
+    // ingredients and instructions removed for latency optimization (now in METADATA_DISH_SCHEMA)
+    // but kept here if needed for legacy or full generation checks
     ingredients: { type: Type.ARRAY, items: INGREDIENT_SCHEMA },
     instructions: { type: Type.ARRAY, items: { type: Type.STRING } },
     tags: { type: Type.ARRAY, items: { type: Type.STRING } },
@@ -140,7 +142,31 @@ export const LIGHT_DISH_SCHEMA = {
         fat: { type: Type.NUMBER }
       }
     },
-    // New Sensory Attributes
+    flavorProfile: { type: Type.STRING, enum: ['Sweet', 'Sour', 'Salty', 'Bitter', 'Umami', 'Spicy', 'Savory', 'Balanced'] },
+    textureProfile: { type: Type.STRING, enum: ['Crunchy', 'Soft', 'Creamy', 'Chewy', 'Soup/Liquid', 'Dry'] },
+    glycemicIndex: { type: Type.STRING, enum: ['Low', 'Medium', 'High'] }
+  },
+  required: ["name", "description", "cuisine", "type", "tags", "healthTags", "macros"]
+};
+
+// Optimized for Latency (Feed Generation)
+// Excludes expensive fields: ingredients, instructions
+export const METADATA_DISH_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    name: { type: Type.STRING },
+    localName: { type: Type.STRING },
+    description: { type: Type.STRING },
+    cuisine: { type: Type.STRING },
+    type: { type: Type.STRING, enum: ['Breakfast', 'Lunch', 'Dinner', 'Snack'] },
+    tags: { type: Type.ARRAY, items: { type: Type.STRING } },
+    healthTags: { type: Type.ARRAY, items: { type: Type.STRING } },
+    macros: {
+      type: Type.OBJECT,
+      properties: {
+        calories: { type: Type.NUMBER }
+      }
+    },
     flavorProfile: { type: Type.STRING, enum: ['Sweet', 'Sour', 'Salty', 'Bitter', 'Umami', 'Spicy', 'Savory', 'Balanced'] },
     textureProfile: { type: Type.STRING, enum: ['Crunchy', 'Soft', 'Creamy', 'Chewy', 'Soup/Liquid', 'Dry'] },
     glycemicIndex: { type: Type.STRING, enum: ['Low', 'Medium', 'High'] }
@@ -238,13 +264,8 @@ export const buildRecipePrompt = (constraints: string, userCuisines?: string[]):
     ? `CRITICAL: ${constraints}\n\n`
     : '';
 
-  // SHORTENED PROMPT for faster generation
-  return `${constraintSection}Generate ONE ${targetCuisine} ${randomTechnique} recipe.
-
-Return JSON:
-{"name":"...", "localName":"...", "description":"2 sentences", "cuisine":"${targetCuisine}", "type":"Lunch|Dinner|Breakfast|Snack", "tags":["..."], "healthTags":["..."], "macros":{"calories":N}}
-
-RULES: Real dish name, specific to ${targetCuisine} cuisine. Seed:${seed}`;
+  // MINIMAL PROMPT - schema enforces structure, no need for verbose instructions
+  return `${constraintSection}${targetCuisine} ${randomTechnique} dish. Seed:${seed}`;
 };
 
 /**
@@ -256,7 +277,7 @@ const generateSingleDishWithRetry = async (
 ): Promise<any | null> => {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const result = await secureGenerate(prompt, LIGHT_DISH_SCHEMA, env.gemini.defaultModel);
+      const result = await secureGenerate(prompt, METADATA_DISH_SCHEMA, env.gemini.defaultModel);
       if (result && isValidDish(result)) {
         return result;
       }
@@ -327,8 +348,9 @@ export const secureGenerate = async (prompt: any, schema: any, modelName: string
         generationConfig: {
           responseMimeType: "application/json",
           responseSchema: schema,
-          temperature: 0.4,
-          candidateCount: 1
+          temperature: 0.3, // Lowered for deterministic structured output
+          candidateCount: 1,
+          maxOutputTokens: 500 // Limit to prevent runaway generation
         }
       });
 
@@ -353,17 +375,7 @@ export const buildSeededRecipePrompt = (dishName: string, constraints: string): 
     ? `CRITICAL INSTRUCTIONS:\nSTRICTLY FOLLOW THESE CONSTRAINTS: ${constraints}\n(Any violation of diet/allergens is a critical failure.)\n\n`
     : '';
 
-  return `${constraintSection}Generate the specific recipe for: "${dishName}".
-You MUST provide ALL fields with real data suitable for this specific dish.
-
-RULES:
-- name: Must be "${dishName}"
-- description: 2-3 appetizing sentences
-- type: Infer correctly (Dinner/Lunch/etc)
-- tags: Relevant tags
-- healthTags: Relevant health benefits
-
-Return valid JSON only.`;
+  return `${constraintSection}"${dishName}". Complete all schema fields.`;
 };
 
 /**
@@ -428,8 +440,8 @@ export const generateNewDishes = async (
 
 
 
-    const exclusionList = shownDishNames.length > 0
-      ? `\n\nIMPORTANT: Do NOT generate these dishes (user has already seen them): ${shownDishNames.slice(-20).join(', ')}.`
+    const exclusionList = shownDishNames.length > 0 && shownDishNames.length <= 10
+      ? `\n\nAvoid: ${shownDishNames.slice(-10).join(', ')}`
       : '';
 
     // Prepare Prompts for Parallel Execution
@@ -630,16 +642,22 @@ export const generateCookInstructions = async (plan: DayPlan[], userProfile?: Us
     const constraints = userProfile ? buildConstraintPrompt(userProfile) : '';
     const safetyWarning = constraints ? `IMPORTANT SAFETY CONTEXT (Tell the Cook): ${constraints}` : '';
 
-    // Extract Knowledge Graph Fragment
-    const kgContext = JSON.stringify(ingredientsMaster.ingredients, ["displayName", "allergens", "substitutes"]);
+    // Extract Optimized Knowledge Graph Fragment
+    const kgContext = userProfile
+      ? knowledgeGraph.getRelevantSafetyContext(userProfile.allergens, userProfile.conditions)
+      : "No constraints provided.";
+
+    // Truncate menu summary if too long (unlikely but safe)
+    const cleanMenu = menuSummary.slice(0, 1000);
 
     const prompt = `Create a WhatsApp message for the cook.
     DO NOT include any greeting (no "Namaste", "Sun", "Hey", etc). Start directly with the menu/instructions.
 
     INPUT DATA:
-    Menu: ${menuSummary}
+    Menu: ${cleanMenu}
     User Constraints: ${safetyWarning}
-    Knowledge Graph (Ingredient DB): ${kgContext}
+    Knowledge Graph Safety Rules:
+    ${kgContext}
 
     TASK:
     1.  **Analyze (Internal Monologue)**: 

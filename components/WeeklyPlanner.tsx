@@ -4,6 +4,7 @@ import { DAYS_OF_WEEK } from '../constants';
 import { generateCookAudio, generateCookInstructions } from '../services/geminiService';
 import { RefreshCw, Zap, Coffee, RotateCw, Send, ArrowDownCircle, Eraser, Lock, Unlock, Sparkles, Link as LinkIcon, CheckSquare, MessageCircle, Mic, Play, Loader2 } from 'lucide-react';
 import DelegateModal from './DelegateModal';
+import { getMealSuggestion } from '../utils/mealPairings';
 
 interface Props {
   approvedDishes: Dish[];
@@ -90,26 +91,37 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
       }
     }
 
-    // --- MACRO-AWARE SCORING ---
+    // --- MACRO-AWARE SCORING (ENHANCED) ---
     // Score dishes based on how well they fit remaining daily targets
     if (remainingCalories !== undefined && remainingCalories > 0) {
       const scoredPool = finalPool.map(d => {
         let score = 100; // Base score
+        const dishCals = d.macros.calories || 200; // Default if missing
+        const dishProtein = d.macros.protein || 10;
 
-        // Penalize dishes that exceed remaining calories
-        if (d.macros.calories > remainingCalories) {
-          score -= 30;
-        } else if (d.macros.calories <= remainingCalories * 0.6) {
-          // Bonus for dishes that fit well within budget
-          score += 10;
-        }
-
-        // Protein bonus - prioritize high protein dishes if user needs more protein
-        if (remainingProtein !== undefined && remainingProtein > 20 && d.macros.protein > 15) {
+        // === CALORIE SCORING ===
+        if (dishCals > remainingCalories * 1.2) {
+          // Heavily penalize if dish exceeds target by 20%+
+          score -= 40;
+        } else if (dishCals > remainingCalories) {
+          // Minor penalty for slightly over
+          score -= 15;
+        } else if (remainingCalories >= 400 && dishCals >= 300) {
+          // BOOST: Prefer substantial meals when we need 400+ cals
+          score += 25;
+        } else if (dishCals >= remainingCalories * 0.5) {
+          // Good: dish covers at least 50% of remaining
           score += 15;
         }
 
-        // Staple bonus
+        // === PROTEIN SCORING ===
+        if (remainingProtein !== undefined && remainingProtein > 10) {
+          // Need more protein - boost high-protein dishes
+          if (dishProtein >= 20) score += 25;
+          else if (dishProtein >= 10) score += 10;
+        }
+
+        // Staple bonus (user favorites)
         if (d.isStaple) score += 20;
 
         return { dish: d, score };
@@ -491,6 +503,12 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
                         <>
                           <p className="font-bold text-gray-800 leading-tight truncate">{dayPlan.lunch.name}</p>
                           <p className="text-xs text-gray-500 mt-0.5 truncate">{dayPlan.lunch.localName}</p>
+                          {/* Accompaniment Suggestion */}
+                          {getMealSuggestion(dayPlan.lunch.name) && (
+                            <p className="text-[10px] text-brand-600 mt-1 font-medium">
+                              ↳ {getMealSuggestion(dayPlan.lunch.name)}
+                            </p>
+                          )}
                         </>
                       ) : (
                         <p className="text-sm text-gray-400 italic">Skipped</p>
@@ -534,6 +552,12 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
                         <>
                           <p className="font-bold text-gray-800 leading-tight truncate">{dayPlan.dinner.name}</p>
                           <p className="text-xs text-gray-500 mt-0.5 truncate">{dayPlan.dinner.localName}</p>
+                          {/* Accompaniment Suggestion */}
+                          {getMealSuggestion(dayPlan.dinner.name) && (
+                            <p className="text-[10px] text-brand-600 mt-1 font-medium">
+                              ↳ {getMealSuggestion(dayPlan.dinner.name)}
+                            </p>
+                          )}
                         </>
                       ) : (
                         <p className="text-sm text-gray-400 italic">Not planned</p>

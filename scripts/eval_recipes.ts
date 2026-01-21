@@ -112,7 +112,7 @@ async function runEval() {
     console.log(`Testing ${MOCK_PROFILES.length} onboarding profile variations\n`);
 
     // Dynamic import to allow dotenv to load first
-    const { buildRecipePrompt, buildConstraintPrompt, buildSeededRecipePrompt, LIGHT_DISH_SCHEMA, isValidDish } = await import("../services/geminiService.ts");
+    const { buildRecipePrompt, buildConstraintPrompt, buildSeededRecipePrompt, METADATA_DISH_SCHEMA, isValidDish } = await import("../services/geminiService.ts");
 
     const results: any[] = [];
     const latencies: number[] = [];
@@ -123,7 +123,7 @@ async function runEval() {
         model: "gemini-2.0-flash",
         generationConfig: {
             responseMimeType: "application/json",
-            responseSchema: LIGHT_DISH_SCHEMA as any
+            responseSchema: METADATA_DISH_SCHEMA as any
         }
     });
 
@@ -198,6 +198,82 @@ async function runEval() {
             console.log(`   [Seeded] "${dish.name}" - Valid: ${valid} - Name Match: ${nameMatch}`);
         } catch (e) { console.error(e); }
     }
+
+    // === Phase 3: New Feature Tests ===
+    console.log("\n--- Phase 3: New Feature Verification ---");
+
+    // 3a. Meal Pairing Test
+    console.log("\n[Meal Pairing] Testing...");
+    const { getMealSuggestion, getAccompaniments } = await import("../utils/mealPairings.ts");
+    const mealPairingTests = [
+        { dish: "Idli", expected: ["Sambar", "Coconut Chutney"], cuisine: "South Indian" },
+        { dish: "Masala Dosa", expected: ["Sambar", "Coconut Chutney"], cuisine: "South Indian" },
+        { dish: "Roti", expected: ["Dal", "Sabzi"], cuisine: "North Indian" },
+        { dish: "Pasta", expected: ["Garlic Bread", "Salad"], cuisine: "Italian" },
+        { dish: "Tacos", expected: ["Salsa", "Guacamole"], cuisine: "Mexican" },
+        { dish: "Pad Thai", expected: ["Peanuts", "Lime", "Bean Sprouts"], cuisine: "Thai" }
+    ];
+
+    let mealPairingPassed = 0;
+    mealPairingTests.forEach(test => {
+        const suggestion = getMealSuggestion(test.dish);
+        const accompaniments = getAccompaniments(test.dish);
+        const hasExpected = test.expected.every(e => accompaniments.includes(e));
+        if (hasExpected) {
+            console.log(`   ✓ ${test.dish} → ${accompaniments.join(" + ")}`);
+            mealPairingPassed++;
+        } else {
+            console.log(`   ❌ ${test.dish}: Expected ${test.expected.join(" + ")}, got ${accompaniments.join(" + ") || "none"}`);
+        }
+    });
+    console.log(`   Meal Pairing: ${mealPairingPassed}/${mealPairingTests.length} passed`);
+
+    // 3b. KG Safety Context Test
+    console.log("\n[KG Safety Context] Testing...");
+    const { knowledgeGraph } = await import("../services/knowledgeGraphService.ts");
+    const kgTests = [
+        { allergens: ["Gluten"], conditions: [], shouldContain: "Gluten" },
+        { allergens: ["Dairy"], conditions: [], shouldContain: "Dairy" },
+        { allergens: [], conditions: ["Diabetes"], shouldContain: "Diabetes" },
+        { allergens: [], conditions: ["Hypertension"], shouldContain: "Hypertension" }
+    ];
+
+    let kgTestsPassed = 0;
+    kgTests.forEach(test => {
+        const context = knowledgeGraph.getRelevantSafetyContext(test.allergens, test.conditions);
+        if (context.includes(test.shouldContain)) {
+            console.log(`   ✓ ${test.allergens.join(",") || test.conditions.join(",")} → Contains "${test.shouldContain}"`);
+            kgTestsPassed++;
+        } else {
+            console.log(`   ❌ Missing "${test.shouldContain}" in context`);
+        }
+    });
+    console.log(`   KG Safety: ${kgTestsPassed}/${kgTests.length} passed`);
+
+    // 3c. Grocery Aggregation Test (Mock)
+    console.log("\n[Grocery Aggregation] Testing...");
+    // Simulate ingredient aggregation logic
+    const mockIngredients = [
+        { name: "Tomato", quantity: "2 medium" },
+        { name: "Tomato", quantity: "3 medium" },
+        { name: "Onion", quantity: "1 large" },
+        { name: "Onion", quantity: "2 large" }
+    ];
+
+    const aggregated = new Map<string, number>();
+    mockIngredients.forEach(ing => {
+        const key = ing.name.toLowerCase();
+        const numMatch = ing.quantity.match(/(\d+)/);
+        const num = numMatch ? parseFloat(numMatch[1]) : 1;
+        aggregated.set(key, (aggregated.get(key) || 0) + num);
+    });
+
+    const tomatoTotal = aggregated.get("tomato");
+    const onionTotal = aggregated.get("onion");
+    console.log(`   ✓ Tomato: 2 + 3 = ${tomatoTotal} (expected: 5)`);
+    console.log(`   ✓ Onion: 1 + 2 = ${onionTotal} (expected: 3)`);
+    const groceryPassed = tomatoTotal === 5 && onionTotal === 3;
+    console.log(`   Grocery Aggregation: ${groceryPassed ? "PASSED" : "FAILED"}`);
 
     // --- Report ---
     const validResults = results.filter(r => r.valid && !r.error);

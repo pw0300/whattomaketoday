@@ -219,6 +219,41 @@ class KnowledgeGraphService {
             return true;
         });
     }
+    /**
+     * CONTEXT OPTIMIZATION: Get minified safety rules for LLM context
+     * Only returns rules relevant to the specific user's constraints.
+     */
+    getRelevantSafetyContext(userAllergens: string[], userConditions: string[]): string {
+        const rules: string[] = [];
+        const normalizedAllergens = userAllergens.map(a => a.toLowerCase());
+
+        // 1. Allergen Rules
+        if (normalizedAllergens.length > 0) {
+            Object.values(this.ingredients).forEach(ing => {
+                const conflicts = ing.allergens.filter(a => normalizedAllergens.includes(a.toLowerCase()));
+                if (conflicts.length > 0) {
+                    const subs = ing.substitutes.join(', ') || 'Avoid';
+                    rules.push(`- ${ing.displayName}: Contains ${conflicts.join(', ')}. Substitute with: ${subs}`);
+                }
+            });
+        }
+
+        // 2. Condition Rules (Basic logic)
+        if (userConditions.some(c => c.includes('Diabetes'))) {
+            rules.push("- General Diabetes Rule: Minimize sugar, white rice, potato. Prioritize fiber/protein.");
+            Object.values(this.ingredients).forEach(ing => {
+                if (ing.glycemicIndex === 'High') {
+                    rules.push(`- ${ing.displayName}: High GI. Use sparingly.`);
+                }
+            });
+        }
+
+        if (userConditions.some(c => c.includes('Hypertension'))) {
+            rules.push("- General Hypertension Rule: Low sodium. Minimize salt, pickles, processed sauces.");
+        }
+
+        return rules.length > 0 ? "RELEVANT INGREDIENT RULES:\n" + rules.join('\n') : "No specific ingredient constraints found in KG.";
+    }
 }
 
 // Singleton instance

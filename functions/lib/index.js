@@ -42,7 +42,7 @@ const corsHandler = (0, cors_1.default)({ origin: true });
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY;
 exports.generate = functions.https.onRequest((req, res) => {
     corsHandler(req, res, async () => {
-        var _a;
+        var _a, _b;
         // Enforce POST
         if (req.method !== 'POST') {
             res.status(405).send('Method Not Allowed');
@@ -62,7 +62,7 @@ exports.generate = functions.https.onRequest((req, res) => {
             // Initialize Gemini
             const genAI = new generative_ai_1.GoogleGenerativeAI(apiKey);
             const model = genAI.getGenerativeModel({
-                model: modelName || "gemini-2.0-flash",
+                model: modelName || process.env.GEMINI_MODEL || ((_b = functions.config().gemini) === null || _b === void 0 ? void 0 : _b.model) || "gemini-2.0-flash",
                 generationConfig: {
                     responseMimeType: "application/json",
                     responseSchema: schema

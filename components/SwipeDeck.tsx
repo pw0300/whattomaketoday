@@ -126,7 +126,8 @@ const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onS
         else if (info.offset.y < -threshold) { triggerFeedback(SwipeDirection.Up); onSwipe(currentDish.id, SwipeDirection.Up); nextCard(); }
     };
 
-    const nextCard = () => { setActiveIndex(prev => prev + 1); x.set(0); y.set(0); };
+    // FIX: Reset to 0 since parent removes swiped dishes from array
+    const nextCard = () => { setActiveIndex(0); x.set(0); y.set(0); };
 
     const handleMagicImport = async () => {
         if (importTab === 'text' && !inputText.trim()) return;

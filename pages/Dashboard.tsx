@@ -189,15 +189,22 @@ const Dashboard: React.FC = () => {
             }
         }
 
-        const unswiped = availableDishes.filter(d => !approvedDishes.some(ad => ad.id === d.id)).length;
+        // FIX: Remove swiped dish from availableDishes to keep SwipeDeck activeIndex in sync
+        setAvailableDishes(prev => prev.filter(d => d.id !== dishId));
+
+        // Recalculate unswiped based on new availableDishes (after removal)
+        const remainingAfterSwipe = availableDishes.length - 1; // -1 for the dish we just swiped
 
         // AGGRESSIVE Prefetching: Trigger when < 5 cards left. Use Progressive for instant display.
-        if (unswiped < 5 && !fetchingMore && userProfile) {
+        if (remainingAfterSwipe < 5 && !fetchingMore && userProfile) {
             setFetchingMore(true);
-            generateNewDishesProgressive(2, userProfile, (newDish) => {
-                // Each dish appears instantly as it arrives
+            generateNewDishesProgressive(3, userProfile, (newDish) => {
+                // Each dish appears instantly as it arrives - DEDUP by ID AND NAME
                 setAvailableDishes((prev) => {
-                    if (prev.some(d => d.id === newDish.id)) return prev;
+                    // Skip if already in available (by ID or name)
+                    if (prev.some(d => d.id === newDish.id || d.name.toLowerCase() === newDish.name.toLowerCase())) return prev;
+                    // Skip if already approved/liked (by name)
+                    if (approvedDishes.some(d => d.name.toLowerCase() === newDish.name.toLowerCase())) return prev;
                     return [...prev, newDish];
                 });
             }, 'Explorer').finally(() => setFetchingMore(false));
@@ -246,10 +253,10 @@ const Dashboard: React.FC = () => {
                 neededFromAI,
                 profile,
                 (newDish) => {
-                    // Update state as each dish arrives
+                    // Update state as each dish arrives - DEDUP by ID AND NAME
                     setAvailableDishes(prev => {
-                        const exists = prev.some(d => d.id === newDish.id);
-                        if (exists) return prev;
+                        // Skip if already in available (by ID or name)
+                        if (prev.some(d => d.id === newDish.id || d.name.toLowerCase() === newDish.name.toLowerCase())) return prev;
                         return [...prev, newDish];
                     });
                     setCuratingDishCount(prev => prev + 1);
