@@ -8,10 +8,21 @@
  */
 
 import { Dish, UserProfile } from '../types';
-import { getCachedDishes } from './geminiService';
-import { personaService } from './personaService';
-import { pineconeService } from './pineconeService';
-import { knowledgeGraph } from './knowledgeGraphService';
+
+// Refactored to dynamic imports for environment safety and bundle size
+const loadGeminiService = async () => await import('./geminiService');
+const loadPersonaService = async () => {
+    const { personaService } = await import('./personaService');
+    return personaService;
+};
+const loadPineconeService = async () => {
+    const { pineconeService } = await import('./pineconeService');
+    return pineconeService;
+};
+const loadKnowledgeGraph = async () => {
+    const { knowledgeGraph } = await import('./knowledgeGraphService');
+    return knowledgeGraph;
+};
 
 export interface StreamingOptions {
     count: number;
@@ -60,6 +71,7 @@ class StreamingResponseService {
             // Fill from Firebase cache if needed
             if (tier1Dishes.length < 3) {
                 const needed = 3 - tier1Dishes.length;
+                const { getCachedDishes } = await loadGeminiService();
                 const cached = await getCachedDishes(needed, userProfile);
                 tier1Dishes = [...tier1Dishes, ...cached];
             }
@@ -84,10 +96,12 @@ class StreamingResponseService {
 
             if (isNewUser && userId) {
                 // For new users, use persona-based recommendations
+                const personaService = await loadPersonaService();
                 const { personaId } = await personaService.initializeNewUser(userId, userProfile);
                 const sampleDishes = personaService.getSampleDishes(personaId);
 
                 // Try to find these dishes in vector DB
+                const pineconeService = await loadPineconeService();
                 for (const dishName of sampleDishes.slice(0, 3)) {
                     const results = await pineconeService.search(dishName, 'dishes', 1);
                     if (results.length > 0 && results[0].metadata) {
@@ -99,6 +113,7 @@ class StreamingResponseService {
                 }
             } else {
                 // For returning users, use semantic search with profile context
+                const pineconeService = await loadPineconeService();
                 const queryText = `${userProfile.cuisines.join(' ')} ${userProfile.dietaryPreference} dishes`;
                 const similar = await pineconeService.search(queryText, 'dishes', 5);
                 tier2Dishes = similar
@@ -108,6 +123,7 @@ class StreamingResponseService {
             }
 
             // Deduplicate with Tier 1
+            const { getCachedDishes } = await loadGeminiService();
             const tier1Names = new Set((await getCachedDishes(10, userProfile)).map(d => d.name));
             tier2Dishes = tier2Dishes.filter(d => !tier1Names.has(d.name));
 
@@ -166,7 +182,8 @@ class StreamingResponseService {
      */
     async getInstantRecommendations(profile: UserProfile, count: number = 3): Promise<Dish[]> {
         // Use KG for instant, zero-latency recommendations
-        const templates = knowledgeGraph.suggestDishes({
+        const knowledgeGraph = await loadKnowledgeGraph();
+        const templates = await knowledgeGraph.suggestDishes({
             dietaryPreference: profile.dietaryPreference,
             allergens: profile.allergens,
             cuisines: profile.cuisines

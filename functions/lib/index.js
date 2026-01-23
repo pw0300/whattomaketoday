@@ -31,10 +31,11 @@ const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const generative_ai_1 = require("@google/generative-ai");
 const cors_1 = __importDefault(require("cors"));
+// Initialize Admin SDK FIRST (before importing scheduler modules that use it)
+admin.initializeApp();
+// Now safe to import modules that use admin.firestore()
 const ingredientEnrichment_1 = require("./scheduler/ingredientEnrichment");
 const trendAnalysis_1 = require("./scheduler/trendAnalysis");
-// Initialize Admin SDK
-admin.initializeApp();
 // CORS handler
 const corsHandler = (0, cors_1.default)({ origin: true });
 // Configuration

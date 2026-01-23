@@ -1,9 +1,14 @@
+import 'dotenv/config';
 
 // Replicates the user's exact curl request but for EMBEDDINGS
-const apiKey = "AIzaSyCHLKA2tmgKqLM2ogmi45gSMlQs3LA0-vI";
+const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
 const url = `https://generativelanguage.googleapis.com/v1beta/models/embedding-001:embedContent?key=${apiKey}`;
 
 async function test() {
+    if (!apiKey) {
+        console.error("❌ Error: API Key not found in environment variables.");
+        return;
+    }
     console.log("Testing Embedding via Fetch...");
     try {
         const response = await fetch(url, {

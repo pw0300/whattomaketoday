@@ -237,54 +237,47 @@ const Dashboard: React.FC = () => {
         setUserProfile(profile);
         setCuratingProfile(profile);
 
-        // Get filtered starter recipes
+        // Reset state for progressive loading
+        setAvailableDishes([]);
+        setCuratingDishCount(0);
+        setView(AppView.Curating);
+
+        // 1. Check for Pre-warmed dishes from background
+        const { preWarmService } = await import('../services/preWarmService');
+        const userId = currentUser?.uid || sessionId;
+        preWarmService.startPreWarming(userId, profile);
+
+        // 2. Get filtered starter recipes (Fallback/Buffer)
         const safeStarterDishes = filterStarterRecipes({
             dietaryPreference: profile.dietaryPreference,
             allergens: profile.allergens,
             cuisines: profile.cuisines
         }).filter(d => !approvedDishes.some(ad => ad.id === d.id));
 
-        // Prepare starter dishes
-        const initialDishes = safeStarterDishes.slice(0, 5);
-
-        // Reset state for progressive loading
-        setAvailableDishes([]);
-        setCuratingDishCount(0);
-        setView(AppView.Curating);
-
-        // Calculate needed AI dishes
+        const initialDishes = safeStarterDishes.slice(0, 3);
         const TARGET_DISHES = 10;
-        const neededFromAI = Math.max(0, TARGET_DISHES - initialDishes.length);
 
-        // 1. Progressively load starter dishes (simulate "finding" them)
-        const timers: NodeJS.Timeout[] = [];
+        // 3. Display initial batch quickly
         initialDishes.forEach((dish, index) => {
-            const timer = setTimeout(() => {
+            setTimeout(() => {
                 setAvailableDishes(prev => {
-                    // Dedup just in case
                     if (prev.some(d => d.id === dish.id)) return prev;
                     return [...prev, dish];
                 });
                 setCuratingDishCount(prev => prev + 1);
                 setRecentDishName(dish.name);
-            }, (index + 1) * 800); // 800ms delay per starter dish
-            timers.push(timer);
+            }, (index + 1) * 400);
         });
 
-        // Cleanup timers if component unmounts or dependency changes
-        return () => timers.forEach(clearTimeout);
-
-        // 2. Start AI generation in parallel (after a small head start)
+        // 4. Start AI generation (High Priority)
+        const neededFromAI = TARGET_DISHES - initialDishes.length;
         if (neededFromAI > 0) {
-            // Slight delay before AI kicks in to let user read "Analyzing..."
             setTimeout(() => {
                 generateNewDishesProgressive(
                     neededFromAI,
                     profile,
                     (newDish) => {
-                        // Update state as each dish arrives - DEDUP by ID AND NAME
                         setAvailableDishes(prev => {
-                            // Skip if already in available (by ID or name)
                             if (prev.some(d => d.id === newDish.id || d.name.toLowerCase() === newDish.name.toLowerCase())) return prev;
                             return [...prev, newDish];
                         });
@@ -293,9 +286,9 @@ const Dashboard: React.FC = () => {
                     },
                     'Explorer'
                 ).catch(e => console.error("[Curating] Generation error:", e));
-            }, 2000);
+            }, 1000);
         }
-    }, [approvedDishes, setAvailableDishes, setCuratingDishCount, setRecentDishName, setUserProfile, setCuratingProfile, setView]);
+    }, [currentUser, sessionId, approvedDishes, setAvailableDishes, setCuratingDishCount, setRecentDishName, setUserProfile, setCuratingProfile, setView]);
 
     const handleCuratingComplete = React.useCallback(() => {
         setView(AppView.Swipe);

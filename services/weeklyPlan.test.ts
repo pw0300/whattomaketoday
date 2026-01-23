@@ -7,7 +7,33 @@ global.fetch = vi.fn();
 
 // Mock retryWithBackoff to run immediately
 vi.mock('../utils/asyncUtils', () => ({
-    retryWithBackoff: vi.fn((fn) => fn())
+    retryWithBackoff: vi.fn((fn) => fn()),
+    chunkArray: vi.fn((arr, size) => {
+        const chunks = [];
+        for (let i = 0; i < arr.length; i += size) {
+            chunks.push(arr.slice(i, i + size));
+        }
+        return chunks;
+    })
+}));
+
+// Mock contextManagerService
+vi.mock('./contextManagerService', () => ({
+    contextManager: {
+        currentSession: null,
+        condensedMemory: null,
+        initSession: vi.fn(),
+        getCondensedMemory: vi.fn().mockReturnValue(null),
+        getOptimizedContext: vi.fn().mockReturnValue('')
+    }
+}));
+
+// Mock pineconeService
+vi.mock('./pineconeService', () => ({
+    pineconeService: {
+        search: vi.fn().mockResolvedValue([]),
+        upsert: vi.fn().mockResolvedValue(undefined)
+    }
 }));
 
 // --- Helper Functions ---

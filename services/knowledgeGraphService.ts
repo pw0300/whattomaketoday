@@ -1,7 +1,7 @@
 import { Allergen } from '../types.ts';
 
 // Import JSON data
-import ingredientsMaster from '../data/ingredients_master_list.json';
+// JSON data will be loaded dynamically
 
 /**
  * Knowledge Graph Service
@@ -39,6 +39,18 @@ class KnowledgeGraphService {
     private dishTemplates: Record<string, DishTemplate>;
 
     constructor() {
+        this.ingredients = {};
+        this.dishTemplates = {};
+    }
+
+    /**
+     * Lazy-load Knowledge Graph data to keep main bundle small
+     */
+    private async ensureLoaded(): Promise<void> {
+        if (Object.keys(this.ingredients).length > 0) return;
+
+        console.log('[KG] Dynamically loading Knowledge Graph...');
+        const ingredientsMaster = await import('../data/ingredients_master_list.json');
         this.ingredients = ingredientsMaster.ingredients as Record<string, IngredientNode>;
         this.dishTemplates = ingredientsMaster.dishTemplates as Record<string, DishTemplate>;
     }
@@ -53,7 +65,8 @@ class KnowledgeGraphService {
     /**
      * Validate if an ingredient exists in the knowledge graph
      */
-    validateIngredient(ingredientName: string): boolean {
+    async validateIngredient(ingredientName: string): Promise<boolean> {
+        await this.ensureLoaded();
         const key = this.normalizeKey(ingredientName);
         return key in this.ingredients;
     }
@@ -61,7 +74,8 @@ class KnowledgeGraphService {
     /**
      * Get ingredient details from the graph
      */
-    getIngredient(ingredientName: string): IngredientNode | null {
+    async getIngredient(ingredientName: string): Promise<IngredientNode | null> {
+        await this.ensureLoaded();
         const key = this.normalizeKey(ingredientName);
         return this.ingredients[key] || null;
     }
@@ -69,8 +83,8 @@ class KnowledgeGraphService {
     /**
      * Suggest substitutes for an ingredient
      */
-    getSubstitutes(ingredientName: string): string[] {
-        const ingredient = this.getIngredient(ingredientName);
+    async getSubstitutes(ingredientName: string): Promise<string[]> {
+        const ingredient = await this.getIngredient(ingredientName);
         if (!ingredient) return [];
 
         return ingredient.substitutes.map(subKey => {
@@ -82,8 +96,8 @@ class KnowledgeGraphService {
     /**
      * Check if ingredient contains specific allergen
      */
-    hasAllergen(ingredientName: string, allergen: Allergen): boolean {
-        const ingredient = this.getIngredient(ingredientName);
+    async hasAllergen(ingredientName: string, allergen: Allergen): Promise<boolean> {
+        const ingredient = await this.getIngredient(ingredientName);
         if (!ingredient) return false;
 
         return ingredient.allergens.includes(allergen);
@@ -92,7 +106,8 @@ class KnowledgeGraphService {
     /**
      * Get all ingredients safe for user (no allergens)
      */
-    getSafeIngredients(userAllergens: Allergen[]): IngredientNode[] {
+    async getSafeIngredients(userAllergens: Allergen[]): Promise<IngredientNode[]> {
+        await this.ensureLoaded();
         return Object.values(this.ingredients).filter(ing =>
             !ing.allergens.some(a => userAllergens.includes(a as Allergen))
         );
@@ -101,7 +116,8 @@ class KnowledgeGraphService {
     /**
      * Suggest dishes based on available pantry items
      */
-    suggestDishesFromPantry(pantryItems: string[]): DishTemplate[] {
+    async suggestDishesFromPantry(pantryItems: string[]): Promise<DishTemplate[]> {
+        await this.ensureLoaded();
         const normalizedPantry = pantryItems.map(item => this.normalizeKey(item));
 
         return Object.values(this.dishTemplates).filter(dish => {
@@ -117,7 +133,8 @@ class KnowledgeGraphService {
     /**
      * Get missing ingredients for a dish
      */
-    getMissingIngredients(dishKey: string, pantryItems: string[]): string[] {
+    async getMissingIngredients(dishKey: string, pantryItems: string[]): Promise<string[]> {
+        await this.ensureLoaded();
         const dish = this.dishTemplates[dishKey];
         if (!dish) return [];
 
@@ -167,10 +184,10 @@ class KnowledgeGraphService {
     /**
      * STRICT FILTER: Validate a full dish against user constraints using the Graph
      */
-    isDishContextSafe(dish: { ingredients: { name: string }[] }, userAllergens: Allergen[]): boolean {
+    async isDishContextSafe(dish: { ingredients: { name: string }[] }, userAllergens: Allergen[]): Promise<boolean> {
         // 1. Check direct ingredients
         for (const ing of dish.ingredients) {
-            const node = this.getIngredient(ing.name);
+            const node = await this.getIngredient(ing.name);
             if (node) {
                 const conflicts = node.allergens.filter(a => userAllergens.includes(a as Allergen));
                 if (conflicts.length > 0) {
@@ -186,7 +203,8 @@ class KnowledgeGraphService {
      * SMART GENERATION: Suggest valid dishes from the graph based on user profile
      * This allows us to "Seed" the LLM with a known-valid dish name, reducing hallucinations/retries.
      */
-    suggestDishes(profile: { dietaryPreference: string, allergens: string[], cuisines?: string[] }): DishTemplate[] {
+    async suggestDishes(profile: { dietaryPreference: string, allergens: string[], cuisines?: string[] }): Promise<DishTemplate[]> {
+        await this.ensureLoaded();
         return Object.values(this.dishTemplates).filter(dish => {
             // 1. Check Diet
             if (profile.dietaryPreference !== 'Any') {
@@ -200,7 +218,8 @@ class KnowledgeGraphService {
             // 2. Check Allergens (Deep check on essential ingredients)
             // If any essential ingredient has a banned allergen, exclude dish
             const hasAllergen = dish.essentialIngredients.some(ingName => {
-                const node = this.getIngredient(ingName);
+                const key = this.normalizeKey(ingName);
+                const node = this.ingredients[key];
                 if (!node) return false;
                 return node.allergens.some(a => profile.allergens.includes(a));
             });
@@ -223,7 +242,8 @@ class KnowledgeGraphService {
      * CONTEXT OPTIMIZATION: Get minified safety rules for LLM context
      * Only returns rules relevant to the specific user's constraints.
      */
-    getRelevantSafetyContext(userAllergens: string[], userConditions: string[]): string {
+    async getRelevantSafetyContext(userAllergens: string[], userConditions: string[]): Promise<string> {
+        await this.ensureLoaded();
         const rules: string[] = [];
         const normalizedAllergens = userAllergens.map(a => a.toLowerCase());
 

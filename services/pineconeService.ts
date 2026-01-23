@@ -22,9 +22,16 @@ class PineconeService {
         const apiKey = typeof process !== 'undefined' ? process.env?.PINECONE_API_KEY : undefined;
 
         if (apiKey) {
-            this.pc = new Pinecone({ apiKey });
-            this.isInitialized = true;
-            console.log("[Pinecone] Initialized with server-side key.");
+            try {
+                // Browser guard: Pinecone constructor might throw if not running in Node environment
+                // or if the underlying Node-only modules fail to load.
+                this.pc = new Pinecone({ apiKey });
+                this.isInitialized = true;
+                console.log("[Pinecone] Initialized with server-side key.");
+            } catch (e) {
+                console.warn("[Pinecone] Failed to initialize Pinecone client:", e);
+                this.isInitialized = false;
+            }
         } else {
             // This is expected in browser context. Pinecone should only work server-side.
             console.warn("[Pinecone] API Key not found (expected in browser). Vector search disabled client-side.");

@@ -1,6 +1,5 @@
 import { Dish } from '../types';
-import { estimateTokens } from './geminiService';
-import { pineconeService } from './pineconeService';
+import { estimateTokens } from '../utils/tokenUtils';
 
 export interface SessionEvent {
     type: 'swipe_right' | 'swipe_left' | 'swipe_up' | 'search' | 'cook' | 'view_details';
@@ -158,6 +157,7 @@ class ContextManagerService {
                 this.setCondensedMemory(this.condensedMemory);
                 console.log(`[ContextManager] Memory Condensed: "${result.summary}"`);
 
+                const { pineconeService } = await import('./pineconeService');
                 // 3. Upsert to Pinecone (Persona Vector)
                 // We embed the SUMMARY so we can find dishes that match this persona conceptually
                 await pineconeService.upsert([{

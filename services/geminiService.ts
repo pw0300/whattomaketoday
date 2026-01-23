@@ -1,17 +1,20 @@
 import { Type, Modality } from "@google/genai";
-import ingredientsMaster from '../data/ingredients_master_list.json';
 import { Dish, UserProfile, VibeMode, ImageSize, DayPlan } from '../types.ts';
-import { knowledgeGraph } from './knowledgeGraphService.ts';
 import { db } from './firebaseService.ts';
 import { collection, addDoc, getDocs, query, limit, Timestamp } from 'firebase/firestore';
 import { chunkArray } from '../utils/asyncUtils';
 
 import { sanitizeForFirestore } from '../utils/firestoreUtils.ts';
+import { estimateTokens } from '../utils/tokenUtils';
+
+// --- DYNAMIC LOADERS ---
+const loadKnowledgeGraph = async () => {
+  const { knowledgeGraph } = await import('./knowledgeGraphService.ts');
+  return knowledgeGraph;
+};
 
 // --- CACHING LAYER ---
 const CACHE_COLLECTION = 'cached_dishes';
-import { contextManager } from './contextManagerService';
-import { pineconeService } from './pineconeService';
 
 export const cacheGeneratedDishes = async (dishes: Dish[]) => {
   if (!db) return;
@@ -46,6 +49,7 @@ export const getCachedDishes = async (count: number, profile: UserProfile): Prom
     const snapshot = await getDocs(q);
     const pool = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Dish));
 
+    const knowledgeGraph = await loadKnowledgeGraph();
     const valid = pool.filter(d => {
       // 1. Basic Metadata Check
       if (profile.dietaryPreference !== 'Any' && !d.tags?.includes(profile.dietaryPreference)) return false;
@@ -190,8 +194,6 @@ const FULL_RECIPE_SCHEMA = {
 
 // --- TOKEN BUDGETING & OPTIMIZATION ---
 
-export const estimateTokens = (text: string): number => Math.ceil(text.length / 4);
-
 // Strict budgeting for speed
 const BUDGETS = {
   feed: 1000,      // Fast (<2s)
@@ -206,7 +208,8 @@ export const getConstrainedContext = (context: string, maxTokens: number): strin
   return context.slice(0, maxTokens * 4);
 };
 
-export const buildConstraintPrompt = (profile: UserProfile): string => {
+const buildDynamicConstraintPrompt = async (profile: UserProfile): Promise<string> => {
+  const knowledgeGraph = await loadKnowledgeGraph();
   const parts = [];
   if (profile.dietaryPreference !== 'Any') parts.push(`Diet: ${profile.dietaryPreference}`);
   if (profile.allergens.length > 0) parts.push(`No: ${profile.allergens.join(', ')}`);
@@ -214,7 +217,10 @@ export const buildConstraintPrompt = (profile: UserProfile): string => {
   // Critical restrictions first (always kept)
   let context = parts.join('. ');
 
+  const allergenRules = await knowledgeGraph.getRelevantSafetyContext(profile.allergens, profile.conditions);
+
   const optionalParts = [];
+  if (allergenRules) optionalParts.push(allergenRules);
   if (profile.allergenNotes) optionalParts.push(`Allergen Details: "${profile.allergenNotes}"`);
   if (profile.conditions.length > 0) optionalParts.push(`Health: ${profile.conditions.join(', ')}`);
   if (profile.conditionNotes) optionalParts.push(`Health Details: "${profile.conditionNotes}"`);
@@ -456,9 +462,24 @@ export const generateEmbedding = async (text: string): Promise<number[] | null> 
   try {
     // Optimization: Request coalescing for identical in-flight embeddings
     return await requestCoalescer.request(`embed:${text}`, async () => {
-      // Use client SDK directly for now as proxy support for embeddings is not yet configured in vite.config.ts
+      // Preference: Secure Server-Side Proxy
+      if (typeof window !== 'undefined') {
+        console.debug("[Gemini] Generating embedding via secure proxy...");
+        const response = await fetch('/api/embed', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, modelName: "text-embedding-004" })
+        });
+        if (response.ok) {
+          const embedding = await response.json();
+          embeddingCache.set(text, embedding);
+          return embedding;
+        }
+      }
+
+      // Fallback: Client SDK directly
       if (!genAI) {
-        console.warn("[Gemini] Embedding disabled - No client API key.");
+        console.warn("[Gemini] Embedding disabled - No client API key and proxy failed.");
         return null;
       }
 
@@ -560,7 +581,7 @@ export const generateNewDishes = async (
       return cached;
     }
 
-    const constraints = buildConstraintPrompt(userProfile);
+    const constraints = await buildDynamicConstraintPrompt(userProfile);
     const needed = count - cached.length;
 
     // --- 2.5 SEMANTIC CACHE LOOKASIDE (Pinecone) ---
@@ -569,6 +590,9 @@ export const generateNewDishes = async (
     let vectorCached: Dish[] = [];
     if (needed > 0 && userId) {
       try {
+        const { contextManager } = await import('./contextManagerService');
+        const { pineconeService } = await import('./pineconeService');
+
         // Create a search query based on current context
         const queryText = `${constraints} ${userProfile.cuisines.join(' ')} ${contextManager.getCondensedMemory()?.summary || ''}`.trim();
         console.log(`[Gemini] Semantic Search Query: "${queryText.slice(0, 50)}..."`);
@@ -608,6 +632,8 @@ export const generateNewDishes = async (
 
     // A. Fetch Context
     if (userId) {
+      const { contextManager } = await import('./contextManagerService');
+
       // 1. Initialize Session Context
       if (!contextManager.currentSession) contextManager.initSession(userId);
 
@@ -627,7 +653,8 @@ export const generateNewDishes = async (
       // 4. Record this generation event
       // (Will be recorded in validation step ideally, but good to track intent here)
 
-      const safeCandidates = knowledgeGraph.suggestDishes({
+      const knowledgeGraph = await loadKnowledgeGraph();
+      const safeCandidates = await knowledgeGraph.suggestDishes({
         dietaryPreference: userProfile.dietaryPreference,
         allergens: userProfile.allergens,
         cuisines: userProfile.cuisines
@@ -712,6 +739,7 @@ export const generateNewDishes = async (
       // Run in background to not block response
       (async () => {
         try {
+          const { pineconeService } = await import('./pineconeService');
           const vectorRecords = uniqueBatch.map(d => {
             // Sanitize metadata for Pinecone (only supports strings, numbers, booleans, list of strings)
             const metadata: any = { ...d, _type: 'dish' };
@@ -756,7 +784,7 @@ export const generateNewDishesProgressive = async (
   onDishReady: (dish: Dish) => void,
   context: VibeMode = 'Explorer'
 ): Promise<void> => {
-  const constraints = buildConstraintPrompt(userProfile);
+  const constraints = await buildDynamicConstraintPrompt(userProfile);
   const prompt = buildRecipePrompt(constraints, userProfile.cuisines);
 
   const tasks = Array.from({ length: count }).map(async () => {
@@ -790,7 +818,9 @@ export const generateNewDishesProgressive = async (
 
 export const enrichDishDetails = async (dish: Dish, userProfile?: UserProfile): Promise<Dish> => {
   try {
-    const constraints = userProfile ? buildConstraintPrompt(userProfile) : '';
+    const { contextManager } = await import('./contextManagerService');
+    const { pineconeService } = await import('./pineconeService');
+    const constraints = userProfile ? await buildDynamicConstraintPrompt(userProfile) : '';
     const safetyNote = userProfile?.allergens?.length ? `CRITICAL SAFETY: STRICTLY AVOID [${userProfile.allergens.join(', ')}].` : '';
 
     // --- VECTOR OPTIMIZATION START ---
@@ -840,7 +870,8 @@ export const analyzeAndGenerateDish = async (
   customInstruction?: string
 ): Promise<Dish | null> => {
   try {
-    const constraints = userProfile ? buildConstraintPrompt(userProfile) : '';
+    const { contextManager } = await import('./contextManagerService');
+    const constraints = userProfile ? await buildDynamicConstraintPrompt(userProfile) : '';
 
     // SECURITY FIX: Sanitize user input to prevent prompt injection
     const sanitizedInstruction = customInstruction
@@ -891,6 +922,9 @@ export const analyzeAndGenerateDish = async (
 
 export const generateCookInstructions = async (plan: DayPlan[], userProfile?: UserProfile): Promise<string | null> => {
   try {
+    const { contextManager } = await import('./contextManagerService');
+    const { pineconeService } = await import('./pineconeService');
+
     const relevantDays = plan.filter(d => d.lunch || d.dinner);
     if (relevantDays.length === 0) return null;
 
@@ -901,12 +935,13 @@ export const generateCookInstructions = async (plan: DayPlan[], userProfile?: Us
       return dayStr;
     }).join('\n');
 
-    const constraints = userProfile ? buildConstraintPrompt(userProfile) : '';
+    const constraints = userProfile ? await buildDynamicConstraintPrompt(userProfile) : '';
     const safetyWarning = constraints ? `IMPORTANT SAFETY CONTEXT (Tell the Cook): ${constraints}` : '';
 
     // Extract Optimized Knowledge Graph Fragment & Context
+    const knowledgeGraph = await loadKnowledgeGraph();
     const kgContext = userProfile
-      ? knowledgeGraph.getRelevantSafetyContext(userProfile.allergens, userProfile.conditions)
+      ? await knowledgeGraph.getRelevantSafetyContext(userProfile.allergens, userProfile.conditions)
       : "No constraints provided.";
 
     // Add session context (e.g. if they just searched for "low carb")
@@ -994,6 +1029,7 @@ export const generateCookAudio = async (plan: any[]): Promise<string | null> => 
 
 export const analyzeHealthReport = async (file: File): Promise<string> => {
   try {
+    const { pineconeService } = await import('./pineconeService');
     const base64 = await fileToBase64(file);
 
     const prompt = `Analyze this health/medical/allergy report image and extract dietary-relevant information.

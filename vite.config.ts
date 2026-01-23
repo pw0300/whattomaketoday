@@ -68,6 +68,45 @@ export default defineConfig(({ mode }) => {
               res.end(JSON.stringify({ error: e.message || 'Unknown error' }));
             }
           });
+
+          server.middlewares.use('/api/embed', async (req, res) => {
+            if (req.method !== 'POST') {
+              res.statusCode = 405;
+              res.end('Method Not Allowed');
+              return;
+            }
+
+            const buffers: Buffer[] = [];
+            for await (const chunk of req) {
+              buffers.push(chunk);
+            }
+            const data = Buffer.concat(buffers).toString();
+            const { text, modelName } = JSON.parse(data);
+
+            const apiKey = process.env.GEMINI_API_KEY || env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || env.VITE_GEMINI_API_KEY;
+
+            if (!apiKey) {
+              res.statusCode = 500;
+              res.end(JSON.stringify({ error: 'Missing API Key' }));
+              return;
+            }
+
+            try {
+              console.log(`[API Proxy] Generating embedding for: ${text.slice(0, 30)}...`);
+              const genAI = new GoogleGenerativeAI(apiKey);
+              const model = genAI.getGenerativeModel({ model: modelName || "text-embedding-004" });
+              const result = await model.embedContent(text);
+              const embedding = result.embedding.values;
+
+              res.setHeader('Content-Type', 'application/json');
+              res.statusCode = 200;
+              res.end(JSON.stringify(embedding));
+            } catch (e: any) {
+              console.error("[API Proxy] Embedding Error:", e.message || e);
+              res.statusCode = 500;
+              res.end(JSON.stringify({ error: e.message || 'Unknown error' }));
+            }
+          });
         }
       }
     ],
@@ -79,6 +118,22 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
+        // Polyfill or ignore Node modules that might leak from SDKs
+        'fs': 'path-browserify',
+        'path': 'path-browserify',
+        'os': 'os-browserify',
+        'crypto': 'crypto-browserify',
+      }
+    },
+    build: {
+      rollupOptions: {
+        external: ['@pinecone-database/pinecone'],
+        output: {
+          manualChunks: {
+            'vendor-ai': ['@google/generative-ai', 'framer-motion'],
+            'vendor-db': ['firebase/app', 'firebase/firestore', 'firebase/auth'],
+          }
+        }
       }
     }
   };

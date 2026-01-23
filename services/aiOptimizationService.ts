@@ -5,10 +5,8 @@
  * 1. Adaptive Model Selection - Choose optimal model per task
  * 2. Embedding Cache - Cache embeddings to reduce API calls
  * 3. Semantic Deduplication - Avoid regenerating similar dishes
- * 4. Request Coalescing - Deduplicate concurrent identical requests
+  * 4. Request Coalescing - Deduplicate concurrent identical requests
  */
-
-import { pineconeService } from './pineconeService';
 
 // =============================================================================
 // 1. ADAPTIVE MODEL SELECTION
@@ -197,6 +195,7 @@ export async function checkSemanticDuplicate(
     threshold: number = 0.95
 ): Promise<DeduplicationResult> {
     try {
+        const { pineconeService } = await import('./pineconeService');
         const query = `${dishName} ${cuisine}`;
         const results = await pineconeService.search(query, 'dishes', 1);
 

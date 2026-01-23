@@ -6,9 +6,8 @@
  */
 
 import { UserProfile, HealthCondition } from '../types';
+// persona_templates.json remains static for now as it is very small (<10KB)
 import personaTemplates from '../data/persona_templates.json';
-import { pineconeService } from './pineconeService';
-import { generateEmbedding } from './geminiService';
 
 export interface Persona {
     id: string;
@@ -149,6 +148,7 @@ class PersonaService {
             `Sample dishes: ${persona.sampleDishes.join(', ')}.`
         ].join(' ');
 
+        const { generateEmbedding } = await import('./geminiService');
         const embedding = await generateEmbedding(embeddingText);
         if (embedding) {
             this.personaEmbeddings.set(personaId, embedding);
@@ -182,6 +182,7 @@ class PersonaService {
             ].join(' ');
 
             // 3. Upsert to Pinecone
+            const { pineconeService } = await import('./pineconeService');
             await pineconeService.upsert([{
                 id: `user_${userId}_persona`,
                 text: vectorText,

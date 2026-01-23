@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, ChefHat, Utensils } from 'lucide-react';
+import { Sparkles, ChefHat, Utensils, Gamepad2 } from 'lucide-react';
+import KitchenMiniGame from './KitchenMiniGame';
 
 interface CuratingScreenProps {
     dishesLoaded: number;
@@ -177,6 +178,15 @@ const CuratingScreen: React.FC<CuratingScreenProps> = ({
 
                 {/* Cuisine Hint */}
                 <p className="text-sm text-[#F9C74F]/70 mb-6">{cuisineHint}</p>
+
+                {/* Mini Game Container */}
+                <div className="mb-8 w-full">
+                    <div className="flex items-center justify-center gap-2 mb-3 opacity-60">
+                        <Gamepad2 size={14} className="text-[#F9C74F]" />
+                        <span className="text-[10px] font-mono uppercase tracking-[0.2em]">Kitchen Warm-up</span>
+                    </div>
+                    <KitchenMiniGame />
+                </div>
 
                 {/* Recent Dish Added */}
                 <AnimatePresence>
