@@ -11,6 +11,7 @@ import {
     onAuthStateChanged,
     logout
 } from '../services/firebaseService';
+import { addPantryItem, deductPantryItem } from '../services/pantryService';
 import { useStore } from '../store/useStore';
 import IntroWalkthrough from '../components/IntroWalkthrough';
 import Onboarding from '../components/Onboarding';
@@ -26,6 +27,7 @@ import AuthOverlay from '../components/AuthOverlay';
 import CuratingScreen from '../components/CuratingScreen';
 import { Layers, LayoutGrid, ClipboardList, Package, Settings, Loader2, User, LogOut, BookOpen } from 'lucide-react';
 import FirebaseStatus from '../components/debug/FirebaseStatus';
+import NavDock from '../components/NavDock';
 import SEO from '../components/SEO';
 import BlogView from '../components/BlogView';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -136,7 +138,7 @@ const Dashboard: React.FC = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [approvedDishes, weeklyPlan, pantryStock, userProfile, currentUser]);
 
-    const handleAuth = async () => {
+    const handleAuth = React.useCallback(async () => {
         setIsSyncing(true);
         try {
             const user = await signInWithGoogle();
@@ -153,16 +155,16 @@ const Dashboard: React.FC = () => {
         } finally {
             setIsSyncing(false);
         }
-    };
+    }, [getAppState, hydrateFromCloud, setCurrentUser, setIsSyncing, setShowAuth, setView]);
 
-    const handleLogout = async () => {
+    const handleLogout = React.useCallback(async () => {
         await logout();
         localStorage.clear();
         setCurrentUser(null);
         window.location.reload();
-    };
+    }, [setCurrentUser]);
 
-    const handleSwipe = (dishId: string, direction: SwipeDirection) => {
+    const handleSwipe = React.useCallback((dishId: string, direction: SwipeDirection) => {
         const dish = availableDishes.find(d => d.id === dishId);
         if (!dish) return;
 
@@ -219,19 +221,19 @@ const Dashboard: React.FC = () => {
                 });
             }, 'Explorer').finally(() => setFetchingMore(false));
         }
-    };
+    }, [availableDishes, approvedDishes, fetchingMore, setApprovedDishes, setAvailableDishes, setFetchingMore, userId, userProfile, setUserProfile]);
 
-    const handleIntroComplete = () => {
+    const handleIntroComplete = React.useCallback(() => {
         localStorage.setItem('intro_seen', 'true');
         setView(AppView.Onboarding);
-    };
+    }, [setView]);
 
     // === NEW: Curating Screen State ===
     const [curatingDishCount, setCuratingDishCount] = React.useState(0);
     const [recentDishName, setRecentDishName] = React.useState<string | undefined>();
     const [curatingProfile, setCuratingProfile] = React.useState<UserProfile | null>(null);
 
-    const handleOnboardingComplete = async (profile: UserProfile) => {
+    const handleOnboardingComplete = React.useCallback(async (profile: UserProfile) => {
         setUserProfile(profile);
         setCuratingProfile(profile);
 
@@ -240,47 +242,65 @@ const Dashboard: React.FC = () => {
             dietaryPreference: profile.dietaryPreference,
             allergens: profile.allergens,
             cuisines: profile.cuisines
-        });
+        }).filter(d => !approvedDishes.some(ad => ad.id === d.id));
 
-        // Start with starter recipes
+        // Prepare starter dishes
         const initialDishes = safeStarterDishes.slice(0, 5);
-        setAvailableDishes(initialDishes);
-        setCuratingDishCount(initialDishes.length);
 
-        if (initialDishes.length > 0) {
-            setRecentDishName(initialDishes[initialDishes.length - 1].name);
-        }
-
-        // Show Curating Screen immediately
+        // Reset state for progressive loading
+        setAvailableDishes([]);
+        setCuratingDishCount(0);
         setView(AppView.Curating);
 
-        // Progressive loading: Add AI-generated dishes one by one
+        // Calculate needed AI dishes
         const TARGET_DISHES = 10;
         const neededFromAI = Math.max(0, TARGET_DISHES - initialDishes.length);
 
-        if (neededFromAI > 0) {
-            generateNewDishesProgressive(
-                neededFromAI,
-                profile,
-                (newDish) => {
-                    // Update state as each dish arrives - DEDUP by ID AND NAME
-                    setAvailableDishes(prev => {
-                        // Skip if already in available (by ID or name)
-                        if (prev.some(d => d.id === newDish.id || d.name.toLowerCase() === newDish.name.toLowerCase())) return prev;
-                        return [...prev, newDish];
-                    });
-                    setCuratingDishCount(prev => prev + 1);
-                    setRecentDishName(newDish.name);
-                },
-                'Explorer'
-            ).catch(e => console.error("[Curating] Generation error:", e));
-        }
-    };
+        // 1. Progressively load starter dishes (simulate "finding" them)
+        const timers: NodeJS.Timeout[] = [];
+        initialDishes.forEach((dish, index) => {
+            const timer = setTimeout(() => {
+                setAvailableDishes(prev => {
+                    // Dedup just in case
+                    if (prev.some(d => d.id === dish.id)) return prev;
+                    return [...prev, dish];
+                });
+                setCuratingDishCount(prev => prev + 1);
+                setRecentDishName(dish.name);
+            }, (index + 1) * 800); // 800ms delay per starter dish
+            timers.push(timer);
+        });
 
-    const handleCuratingComplete = () => {
+        // Cleanup timers if component unmounts or dependency changes
+        return () => timers.forEach(clearTimeout);
+
+        // 2. Start AI generation in parallel (after a small head start)
+        if (neededFromAI > 0) {
+            // Slight delay before AI kicks in to let user read "Analyzing..."
+            setTimeout(() => {
+                generateNewDishesProgressive(
+                    neededFromAI,
+                    profile,
+                    (newDish) => {
+                        // Update state as each dish arrives - DEDUP by ID AND NAME
+                        setAvailableDishes(prev => {
+                            // Skip if already in available (by ID or name)
+                            if (prev.some(d => d.id === newDish.id || d.name.toLowerCase() === newDish.name.toLowerCase())) return prev;
+                            return [...prev, newDish];
+                        });
+                        setCuratingDishCount(prev => prev + 1);
+                        setRecentDishName(newDish.name);
+                    },
+                    'Explorer'
+                ).catch(e => console.error("[Curating] Generation error:", e));
+            }, 2000);
+        }
+    }, [approvedDishes, setAvailableDishes, setCuratingDishCount, setRecentDishName, setUserProfile, setCuratingProfile, setView]);
+
+    const handleCuratingComplete = React.useCallback(() => {
         setView(AppView.Swipe);
         setCuratingProfile(null);
-    };
+    }, [setView, setCuratingProfile]);
 
     const isCookView = useMemo(() => new URLSearchParams(window.location.search).get('view') === 'cook', []);
     if (isCookView) return <CookView />;
@@ -316,6 +336,10 @@ const Dashboard: React.FC = () => {
                 <div className="pointer-events-auto">
                     <button
                         onClick={() => currentUser ? handleLogout() : setShowAuth(true)}
+                        onTouchEnd={(e) => {
+                            e.preventDefault();
+                            currentUser ? handleLogout() : setShowAuth(true);
+                        }}
                         className="bg-white/50 backdrop-blur-md border border-white/20 px-4 py-2 rounded-full shadow-premium hover:shadow-premium-hover hover:bg-white transition-all flex items-center gap-2 group"
                     >
                         {currentUser ? (
@@ -355,11 +379,11 @@ const Dashboard: React.FC = () => {
                                 initialImportTab={initialImportTab}
                             />
                         )}
-                        {view === AppView.Planner && <WeeklyPlanner approvedDishes={approvedDishes} userProfile={userProfile} onPlanUpdate={setWeeklyPlan} onRequestMoreDishes={() => { }} onPublish={() => setShowReceipt(true)} pantryStock={pantryStock} />}
+                        {view === AppView.Planner && <WeeklyPlanner approvedDishes={approvedDishes} userProfile={userProfile} onPlanUpdate={setWeeklyPlan} onRequestMoreDishes={() => { }} onPublish={() => setShowReceipt(true)} pantryStock={pantryStock} onDishClick={(dish) => setModifyingDish(dish)} />}
                         {view === AppView.Shopping && <GroceryList plan={weeklyPlan} pantryStock={pantryStock} onToggleItem={(item) => {
                             togglePantryItem(item);
                         }} onPrintTicket={() => setShowReceipt(true)} />}
-                        {view === AppView.Pantry && <PantryView pantryStock={pantryStock} onToggleItem={togglePantryItem} onBatchAdd={(items) => setPantryStock(prev => [...new Set([...prev, ...items])])} onClear={clearPantry} onCookFromPantry={() => { setInitialImportTab('pantry'); setView(AppView.Swipe); }} />}
+                        {view === AppView.Pantry && <PantryView pantryStock={pantryStock} onToggleItem={togglePantryItem} onBatchAdd={(items) => setPantryStock(prev => items.reduce((acc, item) => addPantryItem(acc, { name: item }), prev))} onClear={clearPantry} onCookFromPantry={() => { setInitialImportTab('pantry'); setView(AppView.Swipe); }} />}
                         {view === AppView.Journal && <BlogView />}
                         {view === AppView.Profile && <ProfileView userProfile={userProfile} onUpdateProfile={setUserProfile} onFactoryReset={() => { localStorage.clear(); window.location.reload(); }} />}
                     </motion.div>
@@ -367,32 +391,8 @@ const Dashboard: React.FC = () => {
             </div>
 
             {/* Bottom Dock: Premium Floating Glass */}
-            <div className="fixed bottom-8 left-0 w-full flex justify-center z-50 pointer-events-none">
-                <div className="bg-white/80 backdrop-blur-xl px-2 py-2 rounded-full shadow-premium border border-white/40 flex gap-2 pointer-events-auto transform transition-transform hover:scale-[1.02]">
-                    {[
-                        { v: AppView.Swipe, l: 'Discover', i: Layers },
-                        { v: AppView.Planner, l: 'Plan', i: LayoutGrid },
-                        { v: AppView.Shopping, l: 'Shop', i: ClipboardList },
-                        { v: AppView.Journal, l: 'Journal', i: BookOpen }, // New Tab
-                        { v: AppView.Pantry, l: 'Pantry', i: Package },
-                        { v: AppView.Profile, l: 'Me', i: User },
-                    ].map(item => {
-                        const isActive = view === item.v;
-                        return (
-                            <button
-                                key={item.v}
-                                onClick={() => setView(item.v)}
-                                className={`
-                                    relative flex items-center justify-center w-12 h-12 rounded-full transition-all duration-300 group
-                                    ${isActive ? 'bg-gradient-brand text-white shadow-lg shadow-orange-500/30' : 'text-ink-light hover:bg-gray-100 hover:text-ink'}
-                                `}
-                            >
-                                <item.i size={20} strokeWidth={isActive ? 2.5 : 2} className="transition-transform group-hover:scale-110" />
-                            </button>
-                        )
-                    })}
-                </div>
-            </div>
+            {/* BOUNTY FIX: Extracted to component */}
+            <NavDock view={view} setView={setView} />
 
             {showAuth && <AuthOverlay onLogin={handleAuth} onClose={() => setShowAuth(false)} loading={isSyncing} />}
 
@@ -412,11 +412,34 @@ const Dashboard: React.FC = () => {
                             setModifyingDish(updatedDish);
                         }}
                         onCook={(dish, usedIngredients) => {
-                            setPantryStock(prev => prev.filter(item => !usedIngredients.includes(item)));
-                            // Gamification: Award credits
-                            if (userProfile) {
-                                setUserProfile({ ...userProfile, credits: (userProfile.credits || 0) + 3 });
+                            // Find pantry items that match used ingredients and remove them
+                            setPantryStock(prev => {
+                                let currentStock = [...prev];
+                                usedIngredients.forEach(ingredientName => {
+                                    const match = currentStock.find(i => i.name.toLowerCase() === ingredientName.toLowerCase());
+                                    if (match) {
+                                        currentStock = deductPantryItem(currentStock, match.id);
+                                    }
+                                });
+                                return currentStock;
+                            });
+
+                            // BOUNTY FIX: Infinite Credit Exploit
+                            const now = Date.now();
+                            const timeSinceLastCook = now - (dish.lastCooked || 0);
+                            const COOLDOWN = 12 * 60 * 60 * 1000; // 12 Hours
+
+                            if (timeSinceLastCook > COOLDOWN) {
+                                // Award credits only if outside cooldown
+                                if (userProfile) {
+                                    setUserProfile({ ...userProfile, credits: (userProfile.credits || 0) + 3 });
+                                }
+                                // Update lastCooked on the dish
+                                setApprovedDishes(prev => prev.map(d => d.id === dish.id ? { ...d, lastCooked: now } : d));
+                            } else {
+                                console.log(`[Economy] Credit farming blocked. Cooldown active for: ${dish.name}`);
                             }
+
                             setModifyingDish(null);
                         }}
                     />

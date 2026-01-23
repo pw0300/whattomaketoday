@@ -38,13 +38,32 @@ class ErrorBoundary extends Component<Props, State> {
                             {this.state.error?.message}
                         </code>
                     </div>
-                    <button
-                        onClick={() => window.location.reload()}
-                        className="flex items-center gap-2 bg-ink text-paper px-6 py-2 rounded-lg font-bold hover:scale-105 transition-transform"
-                    >
-                        <RefreshCw size={16} />
-                        Reload Kitchen
-                    </button>
+                    <div className="flex flex-col gap-3 w-full max-w-xs">
+                        <button
+                            onClick={() => window.location.reload()}
+                            onTouchEnd={() => window.location.reload()}
+                            className="w-full flex items-center justify-center gap-2 bg-ink text-paper px-6 py-3 rounded-lg font-bold shadow-lg active:scale-95 transition-all"
+                        >
+                            <RefreshCw size={16} />
+                            Reload Kitchen
+                        </button>
+
+                        <button
+                            onClick={() => {
+                                localStorage.clear();
+                                sessionStorage.clear();
+                                window.location.reload();
+                            }}
+                            onTouchEnd={() => {
+                                localStorage.clear();
+                                sessionStorage.clear();
+                                window.location.reload();
+                            }}
+                            className="w-full text-xs font-mono text-gray-500 hover:text-red-600 underline py-2 uppercase tracking-widest"
+                        >
+                            Factory Reset (Clear Data)
+                        </button>
+                    </div>
                 </div>
             );
         }

@@ -22,6 +22,12 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method Not Allowed' });
     }
 
+    // BOUNTY FIX: Basic Payload Security
+    const bodySize = JSON.stringify(req.body).length;
+    if (bodySize > 500000) { // 500KB limit
+        return res.status(413).json({ error: 'Payload too large' });
+    }
+
     const { prompt, contents, schema, modelName } = req.body;
 
     // STRICT SECURITY: Only use server-side keys. 

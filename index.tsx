@@ -3,6 +3,14 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import './index.css';
 
+// BOUNTY FIX: Suppress logs in production
+if (import.meta.env.PROD) {
+  console.log = () => { };
+  console.debug = () => { };
+  console.info = () => { };
+  // Keep warn and error for critical telemetry
+}
+
 const rootElement = document.getElementById('root');
 if (!rootElement) {
   throw new Error("Could not find root element to mount to");

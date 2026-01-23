@@ -1,5 +1,15 @@
 {
   "projects": {
     "default": "whattoeat-91e87"
-  }
+  },
+  "targets": {
+    "whattoeat-91e87": {
+      "hosting": {
+        "app": [
+          "tadkasync"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

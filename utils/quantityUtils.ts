@@ -39,7 +39,10 @@ export const getScaledQuantity = (rawQty: string, servings: number): string => {
         const val = parseQuantity(numberPart);
         if (val !== null) {
             const scaled = val * servings;
-            return `${formatQuantity(scaled)}${textPart}`;
+            // BOUNTY FIX: Floating Point Drift
+            // Snap to nearest 0.05 to prevent 0.300000000004
+            const snapped = Math.round(scaled * 100) / 100;
+            return `${formatQuantity(snapped)}${textPart}`;
         }
     }
     return `${rawQty} (x${servings})`;

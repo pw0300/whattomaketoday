@@ -105,7 +105,24 @@ const ProfileView: React.FC<Props> = ({ userProfile, onUpdateProfile, onFactoryR
     }
   };
 
+  const [validationError, setValidationError] = useState<string | null>(null);
+
   const handleSave = () => {
+    // BOUNTY FIX: Add basic validation
+    if (!profile.name || profile.name.trim().length < 2) {
+      setValidationError("Please enter a valid name (at least 2 characters).");
+      return;
+    }
+    if (profile.cuisines.length === 0) {
+      setValidationError("Please select at least one cuisine preference.");
+      return;
+    }
+    if (profile.biometrics && (profile.biometrics.age < 1 || profile.biometrics.age > 120)) {
+      setValidationError("Please enter a valid age (1-120).");
+      return;
+    }
+
+    setValidationError(null);
     onUpdateProfile(profile);
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2000);
@@ -127,6 +144,14 @@ const ProfileView: React.FC<Props> = ({ userProfile, onUpdateProfile, onFactoryR
           {isSaved ? 'Saved' : 'Save'}
         </button>
       </div>
+
+      {/* BOUNTY FIX: Validation Error Banner */}
+      {validationError && (
+        <div className="bg-red-100 border-b-2 border-red-500 p-3 text-red-800 text-sm font-bold flex items-center gap-2">
+          <AlertTriangle size={16} />
+          {validationError}
+        </div>
+      )}
 
       <div className="flex-1 overflow-y-auto p-4 space-y-8 pb-24">
 

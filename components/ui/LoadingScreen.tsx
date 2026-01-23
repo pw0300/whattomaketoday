@@ -11,19 +11,24 @@ const MESSAGES = [
 
 const LoadingScreen: React.FC<{ onComplete?: () => void }> = ({ onComplete }) => {
     const [msgIndex, setMsgIndex] = useState(0);
+    const nestedTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         const timer = setInterval(() => {
             setMsgIndex(prev => {
                 if (prev === MESSAGES.length - 1) {
                     clearInterval(timer);
-                    setTimeout(() => onComplete?.(), 800);
+                    // BOUNTY FIX: Store nested timeout in ref
+                    nestedTimeoutRef.current = setTimeout(() => onComplete?.(), 800);
                     return prev;
                 }
                 return prev + 1;
             });
         }, 800);
-        return () => clearInterval(timer);
+        return () => {
+            clearInterval(timer);
+            if (nestedTimeoutRef.current) clearTimeout(nestedTimeoutRef.current);
+        };
     }, [onComplete]);
 
     return (

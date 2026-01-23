@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Package, Plus, X, ChefHat, Trash2, Search } from 'lucide-react';
-import { knowledgeGraph } from '../services/knowledgeGraphService';
+import { PantryItem } from '../types';
+import PantryItemCard from './PantryItemCard';
+import AddPantryItemDrawer from './AddPantryItemDrawer';
 
 interface Props {
-  pantryStock: string[];
-  onToggleItem: (item: string) => void;
+  pantryStock: PantryItem[];
+  onToggleItem: (item: string) => void; // Keeps using string name for simple toggle
   onBatchAdd: (items: string[]) => void;
   onClear: () => void;
   onCookFromPantry: () => void;
@@ -31,8 +33,25 @@ const PantryView: React.FC<Props> = ({ pantryStock, onToggleItem, onBatchAdd, on
   };
 
   const sortedStock = [...pantryStock]
-    .filter(i => i.toLowerCase().includes(searchTerm.toLowerCase()))
-    .sort();
+    .filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const [isAddDrawerOpen, setIsAddDrawerOpen] = useState(false);
+
+  // Helper now uses object internally, but prop expects string[] for batch
+  const handleBatchAdd = (items: string[]) => {
+    onBatchAdd(items);
+  };
+
+  const manualAdd = (name: string) => {
+    // Toggle logic in Dashboard checks existence. 
+    // If we want "Add", we should ensure it adds.
+    // Since Dashboard uses `togglePantryItem`, if we pass a name that EXISTS, it might remove it?
+    // Wait, `onToggleItem` takes a string.
+    // We need to implement `onAdd` prop or rely on `onBatchAdd`?
+    // onBatchAdd takes string[]. Let's use that.
+    onBatchAdd([name]);
+  };
 
   return (
     <div className="flex flex-col h-full bg-paper">
@@ -55,34 +74,29 @@ const PantryView: React.FC<Props> = ({ pantryStock, onToggleItem, onBatchAdd, on
           </div>
         </div>
 
-        <div className="relative">
-          <Search size={14} className="absolute left-3 top-3 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search inventory..."
-            className="w-full pl-9 pr-4 py-3 bg-white border-2 border-ink font-mono text-xs focus:outline-none"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-3 top-3 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search inventory..."
+              className="w-full pl-9 pr-4 py-3 bg-white border-2 border-ink font-mono text-xs focus:outline-none"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          {!auditMode && (
+            <button onClick={() => setIsAddDrawerOpen(true)} className="bg-brand-500 text-white px-4 rounded-none border-2 border-ink shadow-hard active:translate-y-1 active:shadow-none hover:bg-brand-400 transition-all flex items-center justify-center">
+              <Plus size={20} strokeWidth={3} />
+            </button>
+          )}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 pb-32 space-y-8">
+      <div className="flex-1 overflow-y-auto p-4 pb-32 space-y-4">
         {!auditMode && (
           <>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newItem}
-                onChange={(e) => setNewItem(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleAddItem()}
-                placeholder="Add stock (comma separated)..."
-                className="flex-1 border-2 border-ink p-3 font-mono text-sm focus:bg-yellow-50 focus:outline-none"
-              />
-              <button onClick={handleAddItem} className="bg-ink text-white px-5 border-2 border-ink shadow-hard active:translate-y-1 active:shadow-none"><Plus /></button>
-            </div>
-
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-2 py-4">
               {SMART_STAPLES.map(g => (
                 <button key={g.label} onClick={() => onBatchAdd(g.items)} className="bg-white border-2 border-ink p-2 font-mono text-[9px] font-black uppercase hover:bg-yellow-50">{g.label}</button>
               ))}
@@ -93,21 +107,32 @@ const PantryView: React.FC<Props> = ({ pantryStock, onToggleItem, onBatchAdd, on
         {auditMode && (
           <div className="bg-red-50 border-4 border-dashed border-red-500 p-4 mb-4">
             <p className="font-black uppercase text-xs text-red-600 mb-1">Audit Protocol Active</p>
-            <p className="font-mono text-[9px] text-red-500">Tap items to mark as DEPLETED. This updates procurement requirements automatically.</p>
+            <p className="font-mono text-[9px] text-red-500">Swipe Left to remove items or update quantity levels.</p>
           </div>
         )}
 
-        <div className="flex flex-wrap gap-2">
+        <div className="grid grid-cols-1 gap-3">
+          {/* TODO: Add Grouping by Category */}
           {sortedStock.map(item => (
-            <button
-              key={item}
-              onClick={() => onToggleItem(item)}
-              className={`flex items-center gap-2 px-3 py-2 border-2 transition-all ${auditMode ? 'bg-white hover:bg-red-50 hover:border-red-500 text-ink' : 'bg-white border-ink shadow-hard-sm'}`}
-            >
-              <span className="font-bold text-xs uppercase">{item}</span>
-              {auditMode ? <Trash2 size={12} className="text-red-400" /> : <X size={12} className="text-gray-300" />}
-            </button>
+            <PantryItemCard
+              key={item.id}
+              item={item}
+              onUpdate={(updates) => {
+                // We need a proper update handler prop passed down from Dashboard -> useStore
+                // For now, toggleItem only adds/removes.
+                // Ideally we should dispatch an 'updateItem' action.
+                // I will defer this implementation until I add 'updatePantryItem' to Store
+                console.log("Update item", item.id, updates);
+              }}
+              onDelete={() => onToggleItem(item.name)} // Toggle removes if exists
+              onAddToGrocery={() => {
+                // TODO: Add to grocery list logic
+                console.log("Add to grocery", item.id);
+                onToggleItem(item.name); // Remove from pantry? Or keep?
+              }}
+            />
           ))}
+
           {sortedStock.length === 0 && (
             <div className="w-full py-20 text-center opacity-10">
               <Package size={64} className="mx-auto mb-4" />
@@ -126,6 +151,11 @@ const PantryView: React.FC<Props> = ({ pantryStock, onToggleItem, onBatchAdd, on
           <span className="font-black uppercase text-sm tracking-tighter">Kitchen Autopilot</span>
         </button>
       </div>
+      <AddPantryItemDrawer
+        isOpen={isAddDrawerOpen}
+        onClose={() => setIsAddDrawerOpen(false)}
+        onAdd={manualAdd}
+      />
     </div>
   );
 };

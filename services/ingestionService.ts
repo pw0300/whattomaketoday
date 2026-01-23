@@ -64,7 +64,7 @@ export const extractRecipeLinksFromHtml = async (baseUrl: string, htmlContent: s
             RETURN JSON ONLY.
         `;
 
-        const result = await secureGenerate(prompt, LINK_EXTRACTION_SCHEMA, 'gemini-2.0-flash');
+        const result = await secureGenerate(prompt, LINK_EXTRACTION_SCHEMA, 'analyze');
         return result?.recipeUrls || [];
 
     } catch (e) {
@@ -108,16 +108,34 @@ export const ingestRecipeFromUrl = async (url: string, content: string): Promise
       RETURN VALID JSON ONLY. NO MARKDOWN, NO EXPLANATION.
     `;
 
-        const parsedData = await secureGenerate(prompt, PARSED_RECIPE_SCHEMA, 'gemini-2.0-flash');
+        const parsedData = await secureGenerate(prompt, PARSED_RECIPE_SCHEMA, 'analyze');
 
         if (!parsedData || !parsedData.name) {
             console.warn(`[Ingestion] Failed to parse content from ${url}`);
             return null;
         }
 
-        // Successfully parsed - return the dish object
+        // Successfully parsed - map to Dish object
         console.log(`[Ingestion] ✅ Successfully parsed: ${parsedData.name}`);
-        return parsedData as Dish;
+
+        const dish: Dish = {
+            id: `imported-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            name: parsedData.name,
+            localName: parsedData.name, // Fallback
+            description: parsedData.description || '',
+            cuisine: parsedData.cuisine || 'Global',
+            type: parsedData.type || 'Lunch',
+            primaryIngredient: parsedData.ingredients?.[0]?.name || 'Unknown',
+            ingredients: parsedData.ingredients || [],
+            instructions: parsedData.instructions || [],
+            macros: parsedData.macros || { calories: 0, protein: 0, carbs: 0, fat: 0 },
+            tags: parsedData.tags || [],
+            image: '', // No image from text ingestion usually
+            allergens: [], // Would need analysis
+            generatedAt: Date.now()
+        };
+
+        return dish;
 
     } catch (e) {
         console.error(`[Ingestion] Error ingesting ${url}:`, e);

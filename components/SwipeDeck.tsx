@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, useMotionValue, useTransform, PanInfo, AnimatePresence } from 'framer-motion';
-import { Dish, SwipeDirection, ImageSize, UserProfile } from '../types';
+import { Dish, SwipeDirection, ImageSize, UserProfile, PantryItem } from '../types';
 import { Heart, X, Star, Link2, Sparkles, Loader2, UploadCloud, Info, Quote, ShoppingBasket, MessageSquarePlus, RefreshCcw, RotateCcw, Grid3X3, Layers, Search, Trash2, Edit, PackageCheck, BrainCircuit, Terminal, Globe } from 'lucide-react';
 import { analyzeAndGenerateDish } from '../services/geminiService';
 
@@ -13,7 +13,7 @@ interface Props {
     onModify: (dish: Dish) => void;
     onImport: (dish: Dish) => void;
     onDelete: (dishId: string) => void;
-    pantryStock: string[];
+    pantryStock: PantryItem[];
     userProfile: UserProfile;
     initialImportTab?: 'text' | 'image' | 'video' | 'pantry' | null;
     fetchingMore?: boolean;
@@ -42,6 +42,12 @@ const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onS
     const borderRight = useTransform(x, [0, 150], ["#18181b", "#22c55e"]);
     const borderLeft = useTransform(x, [0, -150], ["#18181b", "#ef4444"]);
     const borderUp = useTransform(y, [0, -150], ["#18181b", "#3b82f6"]);
+
+    // BOUNTY FIX: Swipe Juice
+    const likeOpacity = useTransform(x, [50, 150], [0, 1]);
+    const nopeOpacity = useTransform(x, [-50, -150], [0, 1]);
+    const superOpacity = useTransform(y, [-50, -150], [0, 1]);
+    const scale = useTransform(x, [-150, 0, 150], [1.05, 1, 1.05]);
 
     const longPressTimer = useRef<number | null>(null);
 
@@ -104,7 +110,7 @@ const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onS
         const normalize = (s: string) => s.toLowerCase().trim();
         let matches = 0;
         dish.ingredients.forEach(ing => {
-            if (pantryStock.some(p => normalize(p).includes(normalize(ing.name)))) matches++;
+            if (pantryStock.some(p => normalize(p.name).includes(normalize(ing.name)))) matches++;
         });
         return Math.round((matches / (dish.ingredients.length || 1)) * 100);
     };
@@ -132,7 +138,7 @@ const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onS
     const handleMagicImport = async () => {
         if (importTab === 'text' && !inputText.trim()) return;
         setIsImporting(true);
-        const result = await analyzeAndGenerateDish(importTab, inputText || (importTab === 'pantry' ? pantryStock.join(',') : ''), '1K', userProfile, customInstruction);
+        const result = await analyzeAndGenerateDish(importTab, inputText || (importTab === 'pantry' ? pantryStock.map(p => p.name).join(',') : ''), '1K', userProfile, customInstruction);
         setIsImporting(false);
         if (result) { onImport(result); setShowImport(false); setInputText(''); }
     };
@@ -249,11 +255,21 @@ const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onS
 
                                 <motion.div
                                     className="w-full h-full bg-surface shadow-premium flex flex-col cursor-grab active:cursor-grabbing relative overflow-hidden rounded-[32px] border border-white/60"
-                                    style={{ x, y, rotate }}
+                                    style={{ x, y, rotate, scale }}
                                     drag
                                     dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
                                     onDragEnd={handleDragEnd}
                                 >
+                                    {/* STAMPS */}
+                                    <motion.div style={{ opacity: likeOpacity }} className="absolute top-8 left-8 z-50 border-[6px] border-green-500 rounded-lg p-2 transform -rotate-12 pointer-events-none">
+                                        <span className="text-4xl font-black text-green-500 uppercase tracking-widest">LIKE</span>
+                                    </motion.div>
+                                    <motion.div style={{ opacity: nopeOpacity }} className="absolute top-8 right-8 z-50 border-[6px] border-red-500 rounded-lg p-2 transform rotate-12 pointer-events-none">
+                                        <span className="text-4xl font-black text-red-500 uppercase tracking-widest">NOPE</span>
+                                    </motion.div>
+                                    <motion.div style={{ opacity: superOpacity }} className="absolute bottom-20 left-1/2 -translate-x-1/2 z-50 border-[6px] border-blue-500 rounded-lg p-2 transform -rotate-6 pointer-events-none">
+                                        <span className="text-3xl font-black text-blue-500 uppercase tracking-widest whitespace-nowrap">STAPLE</span>
+                                    </motion.div>
                                     {/* Card Header Image / Gradient */}
                                     <div className="h-[45%] bg-gradient-premium relative p-6 flex flex-col justify-between group overflow-hidden">
                                         {/* Simple decorative circle */}

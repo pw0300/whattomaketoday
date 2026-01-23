@@ -10,11 +10,16 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "setup:pinecone": "npx tsx scripts/setupPinecone.ts",
+    "ingest:kg": "npx tsx scripts/ingestKnowledgeGraph.ts",
+    "ingest:kg:verify": "npx tsx scripts/verify_pinecone_counts.ts",
+    "ingest:cached": "npx tsx scripts/ingestCachedDishes.ts"
   },
   "dependencies": {
     "@google/genai": "^1.34.0",
     "@google/generative-ai": "^0.24.1",
+    "@pinecone-database/pinecone": "^6.1.3",
     "dotenv": "^17.2.3",
     "firebase": "^12.7.0",
     "firebase-admin": "^13.6.0",

@@ -15,6 +15,8 @@ import { AppState } from '../types';
 
 // Import Firebase instances from centralized lib
 import { auth, db } from '../lib/firebase';
+import { migratePantry } from './pantryService';
+import { PantryItem } from '../types';
 
 // Google Auth Provider
 const provider = new GoogleAuthProvider();
@@ -38,8 +40,15 @@ export const signInWithGoogle = async () => {
             name: user.displayName || 'Home Chef',
             photo: user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`
         };
-    } catch (error) {
+    } catch (error: any) {
         console.error("Firebase Auth Error:", error);
+        if (error.code === 'auth/popup-closed-by-user') {
+            console.warn("User closed popup before finishing sign in.");
+        } else if (error.code === 'auth/network-request-failed') {
+            alert("Network Error: Please check your connection.");
+        } else {
+            alert(`Login Failed: ${error.message}`);
+        }
         throw error;
     }
 };
@@ -78,7 +87,13 @@ export const fetchCloudState = async (uid: string): Promise<AppState | null> => 
         const userDocRef = doc(db, "users", uid);
         const docSnap = await getDoc(userDocRef);
         if (docSnap.exists()) {
-            return docSnap.data() as AppState;
+            const data = docSnap.data();
+            // Data Migration: Check if pantryStock is old format (string[])
+            if (Array.isArray(data.pantryStock) && data.pantryStock.length > 0 && typeof data.pantryStock[0] === 'string') {
+                console.info("Migrating legacy pantry data...");
+                data.pantryStock = migratePantry(data.pantryStock as unknown as string[]);
+            }
+            return data as AppState;
         }
         return null;
     } catch (error) {
@@ -108,6 +123,9 @@ export const reconcileGuestToUser = (guestState: AppState, cloudState: AppState 
         weeklyPlan: cloudState.weeklyPlan && cloudState.weeklyPlan.length > 0
             ? cloudState.weeklyPlan
             : guestState.weeklyPlan,
-        pantryStock: [...new Set([...(cloudState.pantryStock || []), ...(guestState.pantryStock || [])])]
+        // Simple merge for now: Concat and allow implementation to handle deduping later if needed
+        // Ideally we should merge by name, but for reconciliation speed we just concat
+        // The UI will handle displaying duplicates or we can clean up later
+        pantryStock: [...(cloudState.pantryStock || []), ...(guestState.pantryStock || [])]
     };
 };

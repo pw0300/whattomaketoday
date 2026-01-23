@@ -5,62 +5,57 @@ description: Guide for writing high-engagement Product Management content for Li
 
 # Viral PM Writing Style
 
-This skill provides a framework for writing Product Management content that mimics top voices like Shreyas Doshi, Lenny Rachitsky, and Peter Yang. It prioritizes **Narrative Tension** over "Success Stories."
+This skill provides a framework for writing Product Management content that mimics top voices like Shreyas Doshi, Lenny Rachitsky, and Jason Fried. It prioritizes **Narrative Tension** over "Success Stories."
 
-## Core Principles
+## The 3 Archetypes
 
-1.  **The Contrarian Hook**: Never start with "I built X." Start with a conflict, a lie, or a counter-intuitive insight.
-2.  **Vulnerability as Credibility**: Admit failures (retention cliffs, security leaks, bad metrics). In 2024, "Perfect" = "AI Generated." "Messy" = "Human."
-3.  **The "Insight > Feature" Rule**: Don't sell the code. Sell the *observation* about human behavior that necessitated the code.
-4.  **Short, Punchy Rhythm**: Design for skimming. One idea per line. No large paragraphs.
+### 1. The Sage (Shreyas Doshi)
+*   **Role:** The patterns-recognizer.
+*   **Tone:** High information density, authoritative, diagnostic.
+*   **Hook:** "The [Name] Fallacy: Why most [Role] fail at [Task]."
+*   **Use for:** Strategy posts, framework introductions, deeply analytical observations.
+
+### 2. The Direct Builder (Jason Fried)
+*   **Role:** The essentialist.
+*   **Tone:** Extreme brevity, blunt truths, no adjectives.
+*   **Hook:** A simple, counter-intuitive statement. ("User feedback is a trap.")
+*   **Use for:** Origin stories, design decisions, "cutting the fluff" narratives.
+
+### 3. The Tactical Problem-Solver (Lenny Rachitsky)
+*   **Role:** The deep-dive researcher.
+*   **Tone:** Action-oriented, "I suffered so you don't have to."
+*   **Hook:** Teasing a major breakthrough after a struggle. ("I spent 48 hours fighting X.")
+*   **Use for:** Technical deep dives, "How-To" guides, architecture breakdowns.
+
+## The "Anti-LLM" Rules (How to sound Human)
+
+1.  **Half-Told Stories (The Loop):** Never give the answer in line 1.
+    *   ❌ "I optimized my app using caching."
+    *   ✅ "I typed `firebase deploy` and everything broke." (Forces a click).
+2.  **Kill the Adjectives:** If it ends in "-ly" or "-ive", kill it.
+    *   *Banned:* comprehensive, dynamic, seamless, robust, meticulously.
+    *   *Allowed:* built, broke, trusted, failed, fixed.
+3.  **The "High-Density" Filter:** One idea per line. If a sentence doesn't advance the plot, delete it.
+4.  **No Formal Intros:** Start `In Medias Res` (in the middle of the chaos).
+5.  **Close the Loop:** If you start with a story (e.g., Mom), end with that story.
 
 ## The Formula: Hook -> Struggle -> Transformation -> Insight
 
 ### 1. The Hook (The "Lie")
 Start by attacking a common assumption or admitting a personal delusion.
-*   ❌ *Bad:* "I built a recipe app using Gemini."
-*   ✅ *Good:* "Most side projects die because we build for a user who doesn't exist: Ourselves."
-*   ✅ *Good:* "I lied to myself on Slide 4 of my pitch deck."
+*   "Most side projects die because we build for a user who doesn't exist: Ourselves."
 
 ### 2. The Struggle (The "Messy Middle")
 Show the "Agentic Struggle" or the "Nani Test Failure."
-*   *Example:* "I hired 3 AI Agents. I had to fire 2 of them. They were like caffeinated interns who lied on their resumes."
-*   *Example:* "My Mom didn't swipe right. She squinted. 'Beta, just show me the list.'"
+*   "My Mom didn't swipe. She squinted. 'Beta, just show me the list.'"
 
 ### 3. The Transformation (The "Pivot")
 The moment "Smart You" realized "Stupid You" was wrong.
-*   *Example:* "So I deleted the 'Swipe Deck'. I built a boring 'Grid View'."
-*   *Example:* "I realized my 'AI Moat' was just a 20,000-line JSON file I typed manually."
+*   "So I deleted the 'Swipe Deck'. I built a boring 'Grid View'."
 
 ### 4. The Insight (The "Takeaway")
 A universal truth about Product Management.
-*   *Example:* "Delight isn't animation. Delight is a tool that disappears."
-*   *Example:* "If you can't read the code your Agent wrote, you haven't shipped a product. You've signed a liability waiver."
-
-## Tone & Voice Guidelines
-
-*   **No Corporate Speak:** Ban words like "Synergy," "Leverage," "Robust," "Seamless."
-*   **Use Sensory Details:** "My heart stopped," "Caffeinated interns," "Under kitchen lights."
-*   **Direct & Opinionated:** Don't say "It depends." Take a stance.
-*   **Human > AI:** If it sounds like ChatGPT wrote it, rewrite it. Add a typo or a slang if necessary (but prefer just raw honesty).
-
-## Advanced Narrative Patterns (The "Builder's Code")
-
-### 1. The "Jason Fried" Simplicity Test
-*   **Rule:** If you wouldn't say it to a friend over coffee, don't write it.
-*   **Fix:** "We leveraged AI optimizations" → "We used AI to make it faster."
-*   **Fix:** "Seamless integration" → "It just works."
-
-### 2. The "Julian Shapiro" Hook
-*   **Rule:** Start in the middle of the chaos (`In Medias Res`).
-*   **Pattern:** [Action] -> [Unexpected Result] -> [Why].
-*   *Example:* "I deleted 40% of my code yesterday. The app got faster. Here's why." (Better than "How I optimized my app.")
-
-### 3. The "Paul Graham" Insight
-*   **Rule:** Good writing is just clear thinking.
-*   **Test:** Is your insight surprising? Or is it a platitude?
-*   *Platitude:* "PMs need to talk to users."
-*   *Surprising:* "Your users are lying to you about their diet."
+*   "Delight isn't animation. Delight is a tool that disappears."
 
 ## The "De-Corporatization" List (Banned Words)
 *   Leverage -> Use
@@ -72,4 +67,6 @@ A universal truth about Product Management.
 *   Evolution -> Growth
 *   Paradigm Shift -> (Delete)
 *   Game-changer -> (Delete)
+*   Delve -> (Delete)
+*   Unleash -> (Delete)
 

@@ -20,6 +20,29 @@ const DishModal: React.FC<Props> = ({ dish, userProfile, onClose, onSave, onCook
     const [servings, setServings] = useState(dish.servings || 1);
     const [chefMode, setChefMode] = useState(false);
     const [isEnriching, setIsEnriching] = useState(false);
+    const [isHydrating, setIsHydrating] = useState(false);
+
+    // LAZY HYDRATION: Self-repair if dish is missing data (Ghost Dish Check)
+    React.useEffect(() => {
+        const needsRepair = !dish.ingredients || dish.ingredients.length === 0 || !dish.instructions || dish.instructions.length === 0;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const isLocked = (dish as any).isLocked;
+
+        if (needsRepair && !isHydrating && !isEnriching && !isLocked) {
+            console.log("[DishModal] Dish missing data (Ghost). Triggering Lazy Hydration for:", dish.name);
+            setIsHydrating(true);
+            import('../services/geminiService').then(({ enrichDishDetails }) => {
+                enrichDishDetails(dish, userProfile).then(fullDish => {
+                    if (onUpdate) onUpdate(fullDish);
+                    setIsHydrating(false);
+                }).catch(err => {
+                    console.error("Hydration Failed", err);
+                    setIsHydrating(false);
+                });
+            });
+        }
+    }, [dish.id]); // Only run once per dish open
+
 
     const handleCommit = () => {
         onSave(dish.id, notes, servings);
@@ -64,9 +87,17 @@ const DishModal: React.FC<Props> = ({ dish, userProfile, onClose, onSave, onCook
                     </div>
                 </div>
 
-                <div className="mt-4 p-2 bg-yellow-50 border border-yellow-200 rounded text-[10px] text-yellow-800 flex items-center gap-2 mx-4">
-                    <span className="font-bold">⚠️ AI GENERATED:</span> Verify ingredients and instructions before cooking.
-                </div>
+                {(isHydrating || isEnriching) && (
+                    <div className="p-2 bg-blue-50 border-b border-blue-100 flex items-center gap-2 justify-center text-xs font-bold text-blue-700 animate-pulse">
+                        <Loader2 className="animate-spin" size={14} /> RESTORING RECIPE DATA...
+                    </div>
+                )}
+
+                {!isHydrating && (
+                    <div className="mt-4 p-2 bg-yellow-50 border border-yellow-200 rounded text-[10px] text-yellow-800 flex items-center gap-2 mx-4">
+                        <span className="font-bold">⚠️ AI GENERATED:</span> Verify ingredients and instructions before cooking.
+                    </div>
+                )}
 
                 {/* Tab Switcher */}
                 <div className="flex border-b-2 border-ink">

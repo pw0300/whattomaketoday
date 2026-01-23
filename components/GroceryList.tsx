@@ -1,19 +1,14 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { DayPlan, Ingredient } from '../types';
+import { DayPlan, PantryItem } from '../types';
+import { generateGroceryList, GroceryItem } from '../services/groceryService';
 import { getCommerceLinks } from '../utils/commerceUtils';
 import { Share2, CheckSquare, Square, ShoppingCart, Plus, Trash2, XCircle, Utensils, ExternalLink } from 'lucide-react';
 
 interface Props {
   plan: DayPlan[];
-  pantryStock: string[];
+  pantryStock: PantryItem[];
   onToggleItem: (ingredientName: string) => void;
   onPrintTicket: () => void;
-}
-
-// Extended interface for internal use
-interface GroceryItem extends Ingredient {
-  source?: string; // Which dish is this for?
-  originalString?: string; // For fuzzy matching
 }
 
 const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrintTicket }) => {
@@ -33,10 +28,11 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
     localStorage.setItem('tadkaSync_customGrocery', JSON.stringify(customItems));
   }, [customItems]);
 
-  const checkStock = (needed: string) => {
+  // Helper for Custom Items checks (Service handles Plan items)
+  const checkStockForCustom = (needed: string) => {
     const clean = (s: string) => s.toLowerCase().trim().replace(/s$/, '');
     const target = clean(needed);
-    return pantryStock.some(s => clean(s) === target);
+    return pantryStock.some(s => clean(s.name) === target && (s.quantityType === 'binary' || s.quantityLevel > 0));
   };
 
   const handleAddCustom = () => {
@@ -51,148 +47,58 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
   };
 
   const handleClearCompleted = () => {
-    const activeCustoms = customItems.filter(i => !checkStock(i));
+    const activeCustoms = customItems.filter(i => !checkStockForCustom(i));
     setCustomItems(activeCustoms);
   };
 
-  // --- MATH ENGINE DUPLICATION (Lean implementation) ---
-  const getScaledQuantity = (rawQty: string, servings: number): string => {
-    if (!servings || servings === 1) return rawQty;
-
-    const parseQuantity = (qty: string): number | null => {
-      const clean = qty.trim();
-      const mixedMatch = clean.match(/^(\d+)[\s-](\d+)\/(\d+)$/);
-      if (mixedMatch) return parseInt(mixedMatch[1]) + (parseInt(mixedMatch[2]) / parseInt(mixedMatch[3]));
-      const fractionMatch = clean.match(/^(\d+)\/(\d+)$/);
-      if (fractionMatch) return parseInt(fractionMatch[1]) / parseInt(fractionMatch[2]);
-      const decimalMatch = clean.match(/^(\d+(\.\d+)?)$/);
-      if (decimalMatch) return parseFloat(decimalMatch[1]);
-      return null;
-    };
-
-    const formatQuantity = (val: number): string => {
-      if (val === 0) return "";
-      if (Number.isInteger(val)) return val.toString();
-      const whole = Math.floor(val);
-      const decimal = val - whole;
-      const closeTo = (n: number, target: number) => Math.abs(n - target) < 0.05;
-      let frac = "";
-      if (closeTo(decimal, 0.25)) frac = "¼";
-      else if (closeTo(decimal, 0.33)) frac = "⅓";
-      else if (closeTo(decimal, 0.5)) frac = "½";
-      else if (closeTo(decimal, 0.66)) frac = "⅔";
-      else if (closeTo(decimal, 0.75)) frac = "¾";
-      else frac = decimal.toFixed(1).replace('.0', '');
-      if (frac.startsWith("0.")) return frac;
-      return whole > 0 ? `${whole} ${frac}` : frac;
-    };
-
-    const match = rawQty.match(/^([\d\s\/\.-]+)(.*)$/);
-    if (match) {
-      const numberPart = match[1].trim();
-      const textPart = match[2];
-      const val = parseQuantity(numberPart);
-      if (val !== null) {
-        const scaled = val * servings;
-        return `${formatQuantity(scaled)}${textPart}`;
-      }
-    }
-    return `${rawQty} (x${servings})`;
-  };
-
-
-  // Group and AGGREGATE ingredients by category for display
+  // Group and AGGREGATE ingredients using Service
   const categorizedIngredients = useMemo<Record<string, GroceryItem[]>>(() => {
-    // First, collect all ingredients with sources
-    const rawItems: GroceryItem[] = [];
+    // 1. Get Plan Items via Service
+    // Map PantryItems to simple strings for the service (name only)
+    // The service handles fuzzy matching
+    const pantryNames = pantryStock
+      .filter(p => p.quantityType === 'binary' || p.quantityLevel > 0)
+      .map(p => p.name);
 
-    const processIngredient = (ing: Ingredient, sourceDish: string, servings: number) => {
-      const scaledQty = getScaledQuantity(ing.quantity, servings);
-      rawItems.push({ ...ing, quantity: scaledQty, source: sourceDish });
-    };
+    const serviceItems = generateGroceryList(plan, pantryNames);
 
-    plan.forEach(day => {
-      day.lunch?.ingredients.forEach(i => processIngredient(i, day.lunch!.name, day.lunch!.servings || 1));
-      day.dinner?.ingredients.forEach(i => processIngredient(i, day.dinner!.name, day.dinner!.servings || 1));
-    });
-
-    // AGGREGATION: Group by normalized ingredient name
-    const aggregated = new Map<string, {
-      item: GroceryItem,
-      totalQty: number,
-      unit: string,
-      sources: { dish: string, qty: string }[]
-    }>();
-
-    rawItems.forEach(item => {
-      const key = item.name.toLowerCase().trim();
-
-      // Parse quantity: extract number and unit
-      const qtyMatch = item.quantity.match(/^([\d½¼¾⅓⅔\s.]+)\s*(.*)$/);
-      let numericQty = 1;
-      let unit = item.quantity;
-
-      if (qtyMatch) {
-        const numPart = qtyMatch[1].trim()
-          .replace('½', '.5').replace('¼', '.25').replace('¾', '.75')
-          .replace('⅓', '.33').replace('⅔', '.66');
-        numericQty = parseFloat(numPart) || 1;
-        unit = qtyMatch[2] || 'unit';
-      }
-
-      if (aggregated.has(key)) {
-        const existing = aggregated.get(key)!;
-        existing.totalQty += numericQty;
-        existing.sources.push({ dish: item.source || 'Unknown', qty: item.quantity });
-      } else {
-        aggregated.set(key, {
-          item: { ...item },
-          totalQty: numericQty,
-          unit,
-          sources: [{ dish: item.source || 'Unknown', qty: item.quantity }]
-        });
-      }
-    });
-
-    // Convert aggregated map to categorized structure
+    // 2. Bucket them
     const agg: Record<string, GroceryItem[]> = {
       Produce: [], Protein: [], Dairy: [], Pantry: [], Spices: [], Custom: []
     };
 
-    aggregated.forEach(({ item, totalQty, unit, sources }) => {
-      // Format aggregated quantity
-      const formattedQty = Number.isInteger(totalQty) ? totalQty.toString() : totalQty.toFixed(1);
-      const aggregatedItem: GroceryItem = {
-        ...item,
-        quantity: `${formattedQty} ${unit}`,
-        source: sources.length > 1
-          ? `${sources.length} dishes`
-          : sources[0]?.dish || 'Unknown',
-        // Store sources for dropdown (using originalString field)
-        originalString: JSON.stringify(sources)
-      };
-
-      if (agg[item.category]) {
-        agg[item.category].push(aggregatedItem);
+    serviceItems.forEach(item => {
+      const cat = item.category || 'Pantry';
+      if (agg[cat]) {
+        agg[cat].push(item);
       } else {
-        agg['Pantry'].push(aggregatedItem);
+        agg['Pantry'].push(item); // Fallback
       }
     });
 
-    // Add custom items to "Custom"
-    customItems.forEach(item => {
-      agg['Custom'].push({ name: item, quantity: '1 unit', category: 'Pantry', source: 'Manual Entry' });
+    // 3. Add Custom Items
+    customItems.forEach(name => {
+      const isStocked = checkStockForCustom(name);
+      agg['Custom'].push({
+        name,
+        quantity: '1 unit',
+        category: 'Pantry',
+        // @ts-ignore - 'sourceDishes' is part of GroceryItem interface but we are manually constructing it for custom
+        sourceDishes: ['Manual Entry'],
+        isStocked,
+        totalQuantity: 1,
+        unit: 'unit'
+      } as GroceryItem);
     });
 
     return agg;
-  }, [plan, customItems]);
+  }, [plan, customItems, pantryStock]);
 
-  const isEmpty = Object.values(categorizedIngredients).every((list) => (list as GroceryItem[]).length === 0);
-
-  // Fix: Explicitly cast Object.values result to handle unknown type inference
-  const lists = Object.values(categorizedIngredients) as GroceryItem[][];
+  const isEmpty = Object.values(categorizedIngredients).every((list) => list.length === 0);
+  const lists = Object.values(categorizedIngredients);
   const totalItems = lists.reduce((acc, list) => acc + list.length, 0);
-  const checkedItems = lists.flat().filter(i => checkStock(i.name)).length;
+  // Count stocked items
+  const checkedItems = lists.flat().filter(i => i.isStocked).length;
   const progress = totalItems > 0 ? (checkedItems / totalItems) * 100 : 0;
 
   return (
@@ -233,7 +139,7 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
         </div>
 
         {/* Clear Custom Completed */}
-        {customItems.some(i => checkStock(i)) && (
+        {customItems.some(i => checkStockForCustom(i)) && (
           <button
             onClick={handleClearCompleted}
             className="w-full mb-4 text-[10px] font-bold uppercase text-red-500 hover:text-red-700 flex items-center justify-center gap-1 border border-red-200 bg-red-50 p-2"
@@ -242,15 +148,12 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
           </button>
         )}
 
-        {/* Fix: Explicitly cast Object.entries result to handle unknown type inference */}
-        {(Object.entries(categorizedIngredients) as [string, GroceryItem[]][]).map(([category, items]) => {
+        {Object.entries(categorizedIngredients).map(([category, items]) => {
           // SORTING LOGIC: 
           // 1. Unchecked first
-          // 2. Then Alphabetical by Name (so identical items group together)
+          // 2. Then Alphabetical by Name
           const sortedList = [...items].sort((a, b) => {
-            const aChecked = checkStock(a.name);
-            const bChecked = checkStock(b.name);
-            if (aChecked !== bChecked) return aChecked ? 1 : -1;
+            if (a.isStocked !== b.isStocked) return a.isStocked ? 1 : -1;
             return a.name.localeCompare(b.name);
           });
 
@@ -259,9 +162,9 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
               <h3 className="font-mono text-xs font-bold bg-ink text-white inline-block px-2 py-1 mb-3 uppercase">{category}</h3>
               <div className="space-y-1">
                 {sortedList.map((item, idx) => {
-                  const isChecked = checkStock(item.name);
+                  const isChecked = item.isStocked;
                   const isCustom = category === 'Custom';
-                  const key = `${item.name}-${idx}`; // Unique key since we now allow dupes
+                  const key = `${item.name}-${idx}`;
 
                   return (
                     <div
@@ -284,33 +187,25 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
                               <span className="font-mono text-xs text-gray-700 font-bold">{item.quantity}</span>
                               {/* CONTEXT: Show source(s) with expandable breakdown */}
                               {(() => {
-                                // Parse sources from originalString
-                                let sources: { dish: string, qty: string }[] = [];
-                                try {
-                                  if (item.originalString) {
-                                    sources = JSON.parse(item.originalString);
-                                  }
-                                } catch { sources = []; }
-
-                                const hasMultipleSources = sources.length > 1;
+                                const hasMultipleSources = item.sourceDishes.length > 1;
 
                                 return hasMultipleSources ? (
                                   <details className="text-[9px] uppercase text-gray-400 cursor-pointer">
                                     <summary className="flex items-center gap-1 hover:text-gray-600">
-                                      <Utensils size={8} /> {sources.length} dishes (click to expand)
+                                      <Utensils size={8} /> {item.sourceDishes.length} dishes
                                     </summary>
                                     <ul className="mt-1 ml-3 space-y-0.5 text-gray-500">
-                                      {sources.map((s, i) => (
+                                      {item.sourceDishes.map((s, i) => (
                                         <li key={i} className="flex items-center gap-1">
                                           <span className="text-[8px]">•</span>
-                                          <span>{s.dish}: {s.qty}</span>
+                                          <span>{s}</span>
                                         </li>
                                       ))}
                                     </ul>
                                   </details>
                                 ) : (
                                   <span className="text-[9px] uppercase text-gray-400 flex items-center gap-1">
-                                    <Utensils size={8} /> {item.source}
+                                    <Utensils size={8} /> {item.sourceDishes[0]}
                                   </span>
                                 );
                               })()}
@@ -331,7 +226,6 @@ const GroceryList: React.FC<Props> = ({ plan, pantryStock, onToggleItem, onPrint
                                       'bg-[#FC8019] text-white'}`}
                                 title={`Buy on ${link.name}`}
                               >
-                                {/* Using text fallback for logos, but styled better */}
                                 <span className="font-black tracking-tighter">{link.name}</span>
                                 <ExternalLink size={10} className="opacity-70" />
                               </a>

@@ -26,11 +26,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generate = void 0;
+exports.weeklyTrendAnalysis = exports.dailyIngredientEnrichment = exports.generate = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const generative_ai_1 = require("@google/generative-ai");
 const cors_1 = __importDefault(require("cors"));
+const ingredientEnrichment_1 = require("./scheduler/ingredientEnrichment");
+const trendAnalysis_1 = require("./scheduler/trendAnalysis");
 // Initialize Admin SDK
 admin.initializeApp();
 // CORS handler
@@ -90,4 +92,9 @@ exports.generate = functions.https.onRequest((req, res) => {
         }
     });
 });
+/**
+ * Scheduled Jobs
+ */
+exports.dailyIngredientEnrichment = functions.pubsub.schedule('every 24 hours').onRun(ingredientEnrichment_1.analyzeNewIngredients);
+exports.weeklyTrendAnalysis = functions.pubsub.schedule('every sunday 00:00').onRun(trendAnalysis_1.analyzeTrends);
 //# sourceMappingURL=index.js.map

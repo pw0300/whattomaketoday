@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { AppView, UserProfile, Dish, DayPlan, AppState } from '../types';
+import { AppView, UserProfile, Dish, DayPlan, AppState, PantryItem } from '../types';
+import { addPantryItem, deductPantryItem } from '../services/pantryService';
 import { STORAGE_KEYS } from '../constants';
 
 // --- Auth Slice ---
@@ -47,8 +48,8 @@ interface PlannerSlice {
 
 // --- Pantry Slice ---
 interface PantrySlice {
-    pantryStock: string[];
-    setPantryStock: (stock: string[] | ((prev: string[]) => string[])) => void;
+    pantryStock: PantryItem[];
+    setPantryStock: (stock: PantryItem[] | ((prev: PantryItem[]) => PantryItem[])) => void;
     togglePantryItem: (item: string) => void;
     clearPantry: () => void;
 }
@@ -121,12 +122,15 @@ export const useStore = create<AppStore>()(
                 set((state) => ({
                     pantryStock: typeof stock === 'function' ? stock(state.pantryStock) : stock,
                 })),
-            togglePantryItem: (item) =>
-                set((state) => ({
-                    pantryStock: state.pantryStock.includes(item)
-                        ? state.pantryStock.filter((i) => i !== item)
-                        : [...state.pantryStock, item],
-                })),
+            togglePantryItem: (itemName) =>
+                set((state) => {
+                    const exists = state.pantryStock.find(i => i.name.toLowerCase() === itemName.toLowerCase());
+                    if (exists) {
+                        return { pantryStock: deductPantryItem(state.pantryStock, exists.id) };
+                    } else {
+                        return { pantryStock: addPantryItem(state.pantryStock, { name: itemName }) };
+                    }
+                }),
             clearPantry: () => set({ pantryStock: [] }),
 
             // --- UI ---
@@ -161,11 +165,17 @@ export const useStore = create<AppStore>()(
             storage: createJSONStorage(() => localStorage),
             partialize: (state) => ({
                 userProfile: state.userProfile,
-                approvedDishes: state.approvedDishes,
-                availableDishes: state.availableDishes, // Persist unswiped deck for instant reload
+                approvedDishes: state.approvedDishes.slice(-50), // BOUNTY FIX: Storage Bomb Defused (Keep last 50)
+                availableDishes: state.availableDishes.slice(0, 10), // Limit to avoid Storage Quota Exceeded
                 weeklyPlan: state.weeklyPlan,
                 pantryStock: state.pantryStock,
             }),
+            onRehydrateStorage: () => (state) => {
+                console.log('[useStore] Rehydrated from localStorage');
+                if (state) {
+                    console.warn('[Sync Checks] Store overwritten by Tab Sync/Reload. Check for lost data if editing.');
+                }
+            },
         }
     )
 );

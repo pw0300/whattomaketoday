@@ -2,6 +2,8 @@ import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import cors from "cors";
+import { analyzeNewIngredients } from "./scheduler/ingredientEnrichment";
+import { analyzeTrends } from "./scheduler/trendAnalysis";
 
 // Initialize Admin SDK
 admin.initializeApp();
@@ -74,3 +76,10 @@ export const generate = functions.https.onRequest((req, res) => {
         }
     });
 });
+
+/**
+ * Scheduled Jobs
+ */
+export const dailyIngredientEnrichment = functions.pubsub.schedule('every 24 hours').onRun(analyzeNewIngredients);
+
+export const weeklyTrendAnalysis = functions.pubsub.schedule('every sunday 00:00').onRun(analyzeTrends);

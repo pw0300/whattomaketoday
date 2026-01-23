@@ -57,6 +57,7 @@ describe('generateCookInstructions - WhatsApp Message Generation', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        (global as any).window = {};
     });
 
     it('should return null for empty weekly plan', async () => {

@@ -30,3 +30,14 @@ export async function retryWithBackoff<T>(
         return retryWithBackoff(fn, retries - 1, nextDelay, backoffFactor);
     }
 }
+
+/**
+ * Splits an array into chunks of a specified size.
+ */
+export function chunkArray<T>(array: T[], size: number): T[][] {
+    const chunked: T[][] = [];
+    for (let i = 0; i < array.length; i += size) {
+        chunked.push(array.slice(i, i + size));
+    }
+    return chunked;
+}

@@ -16,12 +16,40 @@ vi.mock('./userHistoryService', () => ({
     filterUnseenDishes: vi.fn((dishes) => dishes)
 }));
 
+// Mock pineconeService to prevent real vector search
+vi.mock('./pineconeService', () => ({
+    pineconeService: {
+        search: vi.fn().mockResolvedValue([]),
+        upsert: vi.fn().mockResolvedValue(undefined),
+        hybridSearch: vi.fn().mockResolvedValue([]),
+        isAvailable: vi.fn().mockReturnValue(false)
+    }
+}));
+
+// Mock contextManagerService
+vi.mock('./contextManagerService', () => ({
+    contextManager: {
+        currentSession: null,
+        condensedMemory: null,
+        initSession: vi.fn(),
+        getCondensedMemory: vi.fn().mockReturnValue(null),
+        getOptimizedContext: vi.fn().mockReturnValue('')
+    }
+}));
+
 // Mock global fetch
 global.fetch = vi.fn();
 
 // Mock retryWithBackoff to run immediately
 vi.mock('../utils/asyncUtils', () => ({
-    retryWithBackoff: vi.fn((fn) => fn())
+    retryWithBackoff: vi.fn((fn) => fn()),
+    chunkArray: vi.fn((arr, size) => {
+        const chunks = [];
+        for (let i = 0; i < arr.length; i += size) {
+            chunks.push(arr.slice(i, i + size));
+        }
+        return chunks;
+    })
 }));
 
 describe('geminiService', () => {
@@ -87,6 +115,9 @@ describe('geminiService', () => {
 
     describe('generateNewDishes', () => {
         it('should generate dishes via API when cache is empty', async () => {
+            // Mock window to pass check in secureGenerate
+            (global as any).window = {};
+
             const mockResponse = {
                 name: 'Test Dish',
                 description: 'A delicious test dish with amazing flavors.',

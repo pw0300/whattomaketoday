@@ -30,9 +30,12 @@ const LandingPage: React.FC = () => {
                 <div className="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center">
                     <div className="font-serif text-2xl font-black tracking-tighter">TadkaSync.</div>
                     <div className="flex gap-6 items-center">
-                        <Link to="/blog" className="hidden md:block font-mono text-xs uppercase tracking-widest font-bold hover:text-[#F9C74F] transition-colors">Journal</Link>
+                        <Link to="/blog" className="font-mono text-xs uppercase tracking-widest font-bold hover:text-[#F9C74F] transition-colors">Journal</Link>
                         <Link to="/app" className="bg-[#1A4D2E] text-[#F8F5F2] px-5 py-2 rounded-full font-mono text-xs font-bold uppercase tracking-wider hover:bg-[#143d24] transition-all flex items-center gap-2">
-                            Launch App <Zap size={14} fill="currentColor" />
+                            {/* Mobile: Icon only, Desktop: Text + Icon */}
+                            <span className="hidden md:inline">Launch App</span>
+                            <span className="md:hidden">Login</span>
+                            <Zap size={14} fill="currentColor" />
                         </Link>
                     </div>
                 </div>
@@ -195,7 +198,7 @@ const LandingPage: React.FC = () => {
                     <div className="flex gap-8 font-mono text-xs uppercase tracking-widest">
                         <Link to="/blog" className="hover:text-[#F9C74F]">Journal</Link>
                         <a href="#" className="hover:text-[#F9C74F]">Manifesto</a>
-                        <a href="#" className="hover:text-[#F9C74F]">Login</a>
+                        <Link to="/app" className="hover:text-[#F9C74F]">Login</Link>
                     </div>
                     <div className="flex gap-4">
                         <Instagram size={20} />

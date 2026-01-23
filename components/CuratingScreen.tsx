@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, ChefHat, Utensils } from 'lucide-react';
 
@@ -29,6 +29,12 @@ const CuratingScreen: React.FC<CuratingScreenProps> = ({
     const [showComplete, setShowComplete] = useState(false);
     const progress = Math.min((dishesLoaded / targetDishes) * 100, 100);
 
+    // Ref to track latest dish count (avoids stale closure in timeout)
+    const dishesLoadedRef = useRef(dishesLoaded);
+    useEffect(() => {
+        dishesLoadedRef.current = dishesLoaded;
+    }, [dishesLoaded]);
+
     // Rotate through messages
     useEffect(() => {
         const timer = setInterval(() => {
@@ -37,23 +43,40 @@ const CuratingScreen: React.FC<CuratingScreenProps> = ({
         return () => clearInterval(timer);
     }, []);
 
+    // BOUNTY FIX: Store timeout refs to prevent double-firing
+    const completionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const fallbackTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const hasCompletedRef = useRef(false);
+
+    const safeComplete = () => {
+        if (hasCompletedRef.current) return;
+        hasCompletedRef.current = true;
+        // Clear both timeouts when either fires
+        if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
+        if (fallbackTimeoutRef.current) clearTimeout(fallbackTimeoutRef.current);
+        onComplete();
+    };
+
     // Check if ready
     useEffect(() => {
-        if (dishesLoaded >= targetDishes) {
+        if (dishesLoaded >= targetDishes && !hasCompletedRef.current) {
             setShowComplete(true);
-            setTimeout(onComplete, 1500); // Brief pause before transition
+            completionTimeoutRef.current = setTimeout(safeComplete, 1500);
         }
-    }, [dishesLoaded, targetDishes, onComplete]);
+    }, [dishesLoaded, targetDishes]);
 
-    // Timeout fallback (30s max wait)
+    // Timeout fallback (30s max wait) - uses ref to get latest dish count
     useEffect(() => {
-        const timeout = setTimeout(() => {
-            if (dishesLoaded >= 3) { // At least 3 dishes
-                onComplete();
+        fallbackTimeoutRef.current = setTimeout(() => {
+            if (dishesLoadedRef.current >= 5) {
+                safeComplete();
             }
         }, 30000);
-        return () => clearTimeout(timeout);
-    }, [dishesLoaded, onComplete]);
+        return () => {
+            if (completionTimeoutRef.current) clearTimeout(completionTimeoutRef.current);
+            if (fallbackTimeoutRef.current) clearTimeout(fallbackTimeoutRef.current);
+        };
+    }, []);
 
     const cuisineHint = userCuisines.length > 0
         ? `Finding ${userCuisines[0]} favorites...`

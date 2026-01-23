@@ -3,6 +3,7 @@ import { UserProfile, Macros } from '../types';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Step Components
+import WelcomeStep from './onboarding/WelcomeStep';
 import AllergenStep from './onboarding/AllergenStep';
 import HealthStep from './onboarding/HealthStep';
 import CuisineStep from './onboarding/CuisineStep';
@@ -12,14 +13,14 @@ interface Props {
   onComplete: (profile: UserProfile) => void;
 }
 
-const TOTAL_STEPS = 4;
+const TOTAL_STEPS = 5;
 
 const Onboarding: React.FC<Props> = ({ onComplete }) => {
   const [step, setStep] = useState(1);
   const [direction, setDirection] = useState(1); // 1 = right, -1 = left
 
   const [profile, setProfile] = useState<UserProfile>({
-    name: 'Home Chef',
+    name: '',
     allergens: [],
     allergenNotes: '',
     conditions: [],
@@ -96,6 +97,15 @@ const Onboarding: React.FC<Props> = ({ onComplete }) => {
       cuisines: profile.cuisines.length > 0 ? profile.cuisines : ['North Indian', 'Italian'],
       isOnboarded: true
     };
+
+    // Start background pre-warming for instant first-load experience
+    // This runs async and doesn't block the onComplete callback
+    if (finalProfile.uid) {
+      import('../services/preWarmService').then(({ preWarmService }) => {
+        preWarmService.startPreWarming(finalProfile.uid!, finalProfile);
+      }).catch(console.warn);
+    }
+
     onComplete(finalProfile);
   };
 
@@ -150,13 +160,20 @@ const Onboarding: React.FC<Props> = ({ onComplete }) => {
             className="flex-1 flex flex-col"
           >
             {step === 1 && (
-              <AllergenStep
+              <WelcomeStep
                 profile={profile}
                 onProfileChange={setProfile}
                 onNext={handleNext}
               />
             )}
             {step === 2 && (
+              <AllergenStep
+                profile={profile}
+                onProfileChange={setProfile}
+                onNext={handleNext}
+              />
+            )}
+            {step === 3 && (
               <HealthStep
                 profile={profile}
                 onProfileChange={setProfile}
@@ -164,7 +181,7 @@ const Onboarding: React.FC<Props> = ({ onComplete }) => {
                 onBack={handleBack}
               />
             )}
-            {step === 3 && (
+            {step === 4 && (
               <CuisineStep
                 profile={profile}
                 onProfileChange={setProfile}
@@ -172,7 +189,7 @@ const Onboarding: React.FC<Props> = ({ onComplete }) => {
                 onBack={handleBack}
               />
             )}
-            {step === 4 && (
+            {step === 5 && (
               <BiometricStep
                 profile={profile}
                 onProfileChange={setProfile}

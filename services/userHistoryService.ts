@@ -1,6 +1,7 @@
 import { db } from './firebaseService';
 import { collection, doc, setDoc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { Dish } from '../types';
+import { contextManager } from './contextManagerService';
 
 const USER_HISTORY_COLLECTION = 'user_histories';
 
@@ -53,6 +54,7 @@ export const trackLikedDish = async (userId: string, dish: Dish): Promise<void> 
         }, { merge: true });
 
         console.log(`[History] Tracked liked dish: ${dish.name}`);
+        contextManager.recordEvent({ type: 'swipe_right', dish, timestamp: Date.now() });
     } catch (e) {
         console.warn('[History] Failed to track liked dish:', e);
     }
@@ -78,6 +80,7 @@ export const trackDislikedDish = async (userId: string, dish: Dish): Promise<voi
         }, { merge: true });
 
         console.log(`[History] Tracked disliked dish: ${dish.name}`);
+        contextManager.recordEvent({ type: 'swipe_left', dish, timestamp: Date.now() });
     } catch (e) {
         console.warn('[History] Failed to track disliked dish:', e);
     }
@@ -194,5 +197,9 @@ export const hasSeenDish = (dishName: string, shownDishes: string[]): boolean =>
  * Filter dishes to exclude already-shown ones
  */
 export const filterUnseenDishes = (dishes: Dish[], shownDishNames: string[]): Dish[] => {
-    return dishes.filter(dish => !hasSeenDish(dish.name, shownDishNames));
+    // Optimization: Create a normalized Set once (O(M)) to allow O(1) lookups
+    // This reduces overall complexity from O(N*M) to O(N + M)
+    const seenSet = new Set(shownDishNames.map(s => s.toLowerCase().trim()));
+
+    return dishes.filter(dish => !seenSet.has(dish.name.toLowerCase().trim()));
 };

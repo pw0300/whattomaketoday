@@ -17,7 +17,7 @@ export enum HealthCondition {
 
 export type Cuisine = string;
 
-export type DietaryPreference = 'Vegetarian' | 'Non-Vegetarian' | 'Vegan' | 'Any';
+export type DietaryPreference = 'Vegetarian' | 'Non-Vegetarian' | 'Vegan' | 'Any' | 'Keto' | 'High Protein' | 'Gluten-Free' | 'Paleo';
 
 export interface Macros {
   protein: number;
@@ -88,6 +88,7 @@ export interface Dish {
   flavorProfile?: 'Sweet' | 'Sour' | 'Salty' | 'Bitter' | 'Umami' | 'Spicy' | 'Savory' | 'Balanced';
   textureProfile?: 'Crunchy' | 'Soft' | 'Creamy' | 'Chewy' | 'Soup/Liquid' | 'Dry';
   glycemicIndex?: 'Low' | 'Medium' | 'High';
+  lastCooked?: number; // BOUNTY FIX: Economy exploit prevention
 }
 
 export enum SwipeDirection {
@@ -123,7 +124,17 @@ export interface AppState {
   profile: UserProfile | null;
   approvedDishes: Dish[];
   weeklyPlan: DayPlan[];
-  pantryStock: string[];
+  pantryStock: PantryItem[];
 }
 
 
+export interface PantryItem {
+  id: string;
+  name: string;
+  quantityType: 'discrete' | 'loose' | 'binary'; // 'discrete' = 3 units, 'loose' = levels, 'binary' = has/hasn't
+  quantityLevel: number; // For loose: 1=Low, 2=Med, 3=High. For discrete: Integer count. For binary: 1=Has.
+  unit?: string;
+  addedAt: number;
+  expiryDate?: number;
+  category: string;
+}

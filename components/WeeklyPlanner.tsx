@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Dish, DayPlan, VibeMode, UserProfile } from '../types';
+import { Dish, DayPlan, VibeMode, UserProfile, PantryItem } from '../types';
 import { DAYS_OF_WEEK } from '../constants';
 import { generateCookAudio, generateCookInstructions } from '../services/geminiService';
 import { RefreshCw, Zap, Coffee, RotateCw, Send, ArrowDownCircle, Eraser, Lock, Unlock, Sparkles, Link as LinkIcon, CheckSquare, MessageCircle, Mic, Play, Loader2 } from 'lucide-react';
@@ -12,16 +12,31 @@ interface Props {
   onPlanUpdate: (plan: DayPlan[]) => void;
   onRequestMoreDishes: (context: VibeMode) => void;
   onPublish: () => void;
-  pantryStock?: string[]; // New Prop
+  pantryStock?: PantryItem[];
+  onDishClick: (dish: Dish) => void; // BOUNTY FIX: Enable Navigation
 }
 
-const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpdate, onRequestMoreDishes, onPublish, pantryStock = [] }) => {
+const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpdate, onRequestMoreDishes, onPublish, pantryStock = [], onDishClick }) => {
   const [mode, setMode] = useState<VibeMode>('Comfort');
   const [weekPlan, setWeekPlan] = useState<DayPlan[]>([]);
   const [regenerating, setRegenerating] = useState(false);
   const [swappingSlot, setSwappingSlot] = useState<{ dayIndex: number, type: 'lunch' | 'dinner' } | null>(null);
   const [showLinkCopied, setShowLinkCopied] = useState(false);
   const [showDelegateModal, setShowDelegateModal] = useState(false);
+
+  // BOUNTY FIX: Store timer handles for cleanup
+  const generateTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const magicFillTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const swapTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Cleanup timers on unmount
+  React.useEffect(() => {
+    return () => {
+      if (generateTimeoutRef.current) clearTimeout(generateTimeoutRef.current);
+      if (magicFillTimeoutRef.current) clearTimeout(magicFillTimeoutRef.current);
+      if (swapTimeoutRef.current) clearTimeout(swapTimeoutRef.current);
+    };
+  }, []);
 
   // Cook Bridge State
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
@@ -83,7 +98,7 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
     if (prioritizePantry && pantryStock.length > 0) {
       const pantryPool = finalPool.filter(d => {
         return d.ingredients.some(ing =>
-          pantryStock.some(s => s.toLowerCase().includes(ing.name.toLowerCase()) || ing.name.toLowerCase().includes(s.toLowerCase()))
+          pantryStock.some(s => s.name.toLowerCase().includes(ing.name.toLowerCase()) || ing.name.toLowerCase().includes(s.name.toLowerCase()))
         );
       });
       if (pantryPool.length > 0) {
@@ -146,7 +161,7 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
   // The Original "Generate Whole Week" - Now Macro-Aware
   const generatePlan = (targetMode: VibeMode) => {
     setRegenerating(true);
-    setTimeout(() => {
+    generateTimeoutRef.current = setTimeout(() => {
       let pool = filterPoolByMode(targetMode);
       if (pool.length < 5) onRequestMoreDishes(targetMode);
 
@@ -203,7 +218,7 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
   // --- NEW FEATURE: MAGIC FILL (Autopilot) - Now Macro-Aware ---
   const handleMagicFill = () => {
     setRegenerating(true);
-    setTimeout(() => {
+    magicFillTimeoutRef.current = setTimeout(() => {
       let pool = filterPoolByMode(mode);
       if (pool.length < 3) {
         alert("Not enough approved dishes to auto-fill. Swipe right on more dishes!");
@@ -222,6 +237,7 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
       // Only fill Today + Next 2 days
       for (let i = 0; i < 7; i++) {
         if (i >= safeTodayIdx && i <= safeTodayIdx + 2) {
+          if (i >= newPlan.length) continue; // CRITICAL FIX: Prevent out of bounds
           if (newPlan[i].isLocked) continue;
 
           let remainingCals = dailyCalorieTarget;
@@ -259,7 +275,8 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
     let pool = [...approvedDishes];
     if (targetMode === 'Strict') {
       pool = pool.filter(d =>
-        d.macros.calories <= (userProfile.dailyTargets.calories / 2)
+        // BOUNTY FIX: Defensive null check for macros
+        (d.macros?.calories || 0) <= (userProfile.dailyTargets.calories / 2)
       );
     } else if (targetMode === 'Comfort') {
       const staples = pool.filter(d => d.isStaple);
@@ -272,7 +289,7 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
     if (weekPlan[dayIndex].isLocked) return;
 
     setSwappingSlot({ dayIndex, type });
-    setTimeout(() => {
+    swapTimeoutRef.current = setTimeout(() => {
       const pool = filterPoolByMode(mode);
       const currentDay = weekPlan[dayIndex];
       const otherDish = type === 'lunch' ? currentDay.dinner : currentDay.lunch;
@@ -500,8 +517,8 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
                   <div className="flex-1 p-3 flex justify-between items-center">
                     <div className="flex-1 min-w-0 pr-3">
                       {dayPlan.lunch ? (
-                        <>
-                          <p className="font-bold text-gray-800 leading-tight truncate">{dayPlan.lunch.name}</p>
+                        <div onClick={() => onDishClick(dayPlan.lunch!)} className="cursor-pointer hover:bg-gray-50 -ml-2 p-2 rounded-lg transition-colors group/dish">
+                          <p className="font-bold text-gray-800 leading-tight truncate group-hover/dish:text-brand-600 transition-colors">{dayPlan.lunch.name}</p>
                           <p className="text-xs text-gray-500 mt-0.5 truncate">{dayPlan.lunch.localName}</p>
                           {/* Accompaniment Suggestion */}
                           {getMealSuggestion(dayPlan.lunch.name) && (
@@ -509,9 +526,14 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
                               ↳ {getMealSuggestion(dayPlan.lunch.name)}
                             </p>
                           )}
-                        </>
+                        </div>
                       ) : (
-                        <p className="text-sm text-gray-400 italic">Skipped</p>
+                        <button
+                          onClick={() => handleSwapSlot(idx, 'lunch')}
+                          className="w-full border-2 border-dashed border-gray-200 rounded-lg py-2 flex items-center justify-center gap-2 text-gray-400 hover:text-brand-600 hover:border-brand-300 hover:bg-brand-50 transition-all font-mono text-[10px] uppercase tracking-wider"
+                        >
+                          + Plan Lunch
+                        </button>
                       )}
                     </div>
 
@@ -549,8 +571,8 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
                   <div className="flex-1 p-3 flex justify-between items-center">
                     <div className="flex-1 min-w-0 pr-3">
                       {dayPlan.dinner ? (
-                        <>
-                          <p className="font-bold text-gray-800 leading-tight truncate">{dayPlan.dinner.name}</p>
+                        <div onClick={() => onDishClick(dayPlan.dinner!)} className="cursor-pointer hover:bg-gray-50 -ml-2 p-2 rounded-lg transition-colors group/dish">
+                          <p className="font-bold text-gray-800 leading-tight truncate group-hover/dish:text-brand-600 transition-colors">{dayPlan.dinner.name}</p>
                           <p className="text-xs text-gray-500 mt-0.5 truncate">{dayPlan.dinner.localName}</p>
                           {/* Accompaniment Suggestion */}
                           {getMealSuggestion(dayPlan.dinner.name) && (
@@ -558,9 +580,14 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
                               ↳ {getMealSuggestion(dayPlan.dinner.name)}
                             </p>
                           )}
-                        </>
+                        </div>
                       ) : (
-                        <p className="text-sm text-gray-400 italic">Not planned</p>
+                        <button
+                          onClick={() => handleSwapSlot(idx, 'dinner')}
+                          className="w-full border-2 border-dashed border-gray-200 rounded-lg py-2 flex items-center justify-center gap-2 text-gray-400 hover:text-brand-600 hover:border-brand-300 hover:bg-brand-50 transition-all font-mono text-[10px] uppercase tracking-wider"
+                        >
+                          + Plan Dinner
+                        </button>
                       )}
                     </div>
 
