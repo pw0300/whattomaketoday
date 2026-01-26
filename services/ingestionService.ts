@@ -1,7 +1,8 @@
 import { secureGenerate, cacheGeneratedDishes } from './geminiService';
 import { knowledgeGraph } from './knowledgeGraphService';
 import { Dish } from '../types';
-import { Type } from "@google/genai";
+import { SchemaType } from "@google/generative-ai";
+const Type = SchemaType;
 import { db } from './firebaseService';
 
 // Schema for parsing a recipe from raw blog text

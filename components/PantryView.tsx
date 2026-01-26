@@ -33,8 +33,8 @@ const PantryView: React.FC<Props> = ({ pantryStock, onToggleItem, onBatchAdd, on
   };
 
   const sortedStock = [...pantryStock]
-    .filter(i => i.name.toLowerCase().includes(searchTerm.toLowerCase()))
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .filter(i => i.name?.toLowerCase().includes(searchTerm.toLowerCase()))
+    .sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
   const [isAddDrawerOpen, setIsAddDrawerOpen] = useState(false);
 

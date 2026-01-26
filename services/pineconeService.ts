@@ -1,4 +1,4 @@
-import { Pinecone } from '@pinecone-database/pinecone';
+import type { Pinecone as PineconeType, Index as IndexType } from '@pinecone-database/pinecone';
 import { env } from '../config/env';
 import { generateEmbedding } from './geminiService';
 
@@ -12,29 +12,35 @@ export interface VectorRecord {
 }
 
 class PineconeService {
-    private pc: Pinecone | null = null;
+    private pc: PineconeType | null = null;
     private indexName: string = INDEX_NAME;
     private isInitialized = false;
 
     constructor() {
-        // SECURITY FIX: Only accept server-side API key.
-        // NEVER use import.meta.env for sensitive keys as they get bundled client-side.
-        const apiKey = typeof process !== 'undefined' ? process.env?.PINECONE_API_KEY : undefined;
+        this.init();
+    }
 
+    private async init() {
+        // SECURITY FIX: Explicitly prevent browser-side initialization
+        if (typeof window !== 'undefined') {
+            // Browser context - do nothing
+            // console.debug("[Pinecone] Client-side detected. SDK disabled.");
+            return;
+        }
+
+        const apiKey = env.pinecone.apiKey;
         if (apiKey) {
             try {
-                // Browser guard: Pinecone constructor might throw if not running in Node environment
-                // or if the underlying Node-only modules fail to load.
+                // Dynamic import to avoid bundling issues in client
+                const { Pinecone } = await import('@pinecone-database/pinecone');
                 this.pc = new Pinecone({ apiKey });
                 this.isInitialized = true;
-                console.log("[Pinecone] Initialized with server-side key.");
+                console.log("[Pinecone] Service Initialized.");
             } catch (e) {
-                console.warn("[Pinecone] Failed to initialize Pinecone client:", e);
-                this.isInitialized = false;
+                console.warn("[Pinecone] Initialization failed:", e);
             }
         } else {
-            // This is expected in browser context. Pinecone should only work server-side.
-            console.warn("[Pinecone] API Key not found (expected in browser). Vector search disabled client-side.");
+            console.warn("[Pinecone] Missing API Key. Vector features disabled.");
         }
     }
 
@@ -50,7 +56,9 @@ class PineconeService {
     // --- Core Operations ---
 
     async upsert(records: VectorRecord[], namespace: string = "default") {
+        // If not initialized (e.g. browser), silently skip
         if (!this.pc) return;
+
         try {
             const index = this.getIndex();
             if (!index) return;
@@ -82,32 +90,64 @@ class PineconeService {
     }
 
     async search(query: string, namespace: string = "default", topK: number = 5) {
-        if (!this.pc) return [];
+        // 1. SDK Mode (Server/Node.js)
+        if (this.pc) {
+            try {
+                const index = this.getIndex();
+                if (!index) return [];
+
+                const queryEmbedding = await generateEmbedding(query);
+                if (!queryEmbedding) return [];
+
+                const results = await index.namespace(namespace).query({
+                    vector: queryEmbedding,
+                    topK,
+                    includeMetadata: true
+                });
+
+                return results.matches || [];
+            } catch (e) {
+                console.error("[Pinecone] SDK Search Error:", e);
+                return [];
+            }
+        }
+
+        // 2. Proxy Mode (Client/Browser)
         try {
-            const index = this.getIndex();
-            if (!index) return [];
+            // Determine API URL (Local Emulator vs Production)
+            const isLocal = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+            // TODO: Replace with your actual project ID or dynamic config
+            const PROJECT_ID = 'whattoeat-91e87';
+            const REGION = 'us-central1'; // Default function region
 
-            const queryEmbedding = await generateEmbedding(query);
-            if (!queryEmbedding) return [];
+            const url = isLocal
+                ? `http://127.0.0.1:5001/${PROJECT_ID}/${REGION}/vectorSearch`
+                : `https://${REGION}-${PROJECT_ID}.cloudfunctions.net/vectorSearch`;
 
-            const results = await index.namespace(namespace).query({
-                vector: queryEmbedding,
-                topK,
-                includeMetadata: true
+            console.debug(`[Pinecone] Proxying search to: ${url}`);
+
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query, namespace, topK })
             });
 
-            return results.matches || [];
+            if (!response.ok) {
+                console.warn(`[Pinecone] Proxy Error ${response.status}: ${await response.text()}`);
+                return [];
+            }
+
+            const data = await response.json();
+            return data.matches || [];
+
         } catch (e) {
-            console.error("[Pinecone] Search Error:", e);
+            console.error("[Pinecone] Proxy Search Failed:", e);
             return [];
         }
     }
 
     /**
      * Hybrid BM25 + Semantic Search for cold-start optimization.
-     * Alpha controls the weight: higher alpha = more BM25 (keyword), lower = more semantic.
-     * For new users, use high alpha (0.7) to rely on explicit keywords.
-     * As user data accumulates, lower alpha (0.3) for semantic matching.
      */
     async hybridSearch(
         query: string,
@@ -117,9 +157,6 @@ class PineconeService {
         if (!this.pc) return [];
 
         const { topK = 5, userInteractionCount = 0 } = options;
-
-        // Adaptive alpha: new users get higher BM25 weight, experienced users get more semantic
-        // Alpha = 0.7 for 0 interactions, decreases to 0.3 at 20+ interactions
         const alpha = options.alpha ?? Math.max(0.3, 0.7 - (userInteractionCount * 0.02));
 
         try {
@@ -132,7 +169,7 @@ class PineconeService {
 
             const semanticResults = await index.namespace(namespace).query({
                 vector: queryEmbedding,
-                topK: topK * 2, // Fetch more for re-ranking
+                topK: topK * 2,
                 includeMetadata: true
             });
 
@@ -144,8 +181,6 @@ class PineconeService {
 
             const scoredResults = matches.map(match => {
                 const semanticScore = match.score || 0;
-
-                // Calculate BM25-like keyword score from metadata
                 let bm25Score = 0;
                 const metadata = match.metadata || {};
                 const textContent = [
@@ -157,11 +192,10 @@ class PineconeService {
 
                 queryTerms.forEach(term => {
                     if (textContent.includes(term)) {
-                        bm25Score += 1 / queryTerms.length; // Normalize by query length
+                        bm25Score += 1 / queryTerms.length;
                     }
                 });
 
-                // 3. Combine scores with alpha weighting
                 const hybridScore = (alpha * bm25Score) + ((1 - alpha) * semanticScore);
 
                 return {
@@ -172,9 +206,7 @@ class PineconeService {
                 };
             });
 
-            // 4. Re-rank by hybrid score
             scoredResults.sort((a, b) => (b.score || 0) - (a.score || 0));
-
             console.log(`[Pinecone] Hybrid search (alpha=${alpha.toFixed(2)}): ${scoredResults.length} results`);
             return scoredResults.slice(0, topK);
 

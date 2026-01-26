@@ -5,6 +5,8 @@ import { generateCookAudio, generateCookInstructions } from '../services/geminiS
 import { RefreshCw, Zap, Coffee, RotateCw, Send, ArrowDownCircle, Eraser, Lock, Unlock, Sparkles, Link as LinkIcon, CheckSquare, MessageCircle, Mic, Play, Loader2 } from 'lucide-react';
 import DelegateModal from './DelegateModal';
 import { getMealSuggestion } from '../utils/mealPairings';
+import { getBestPairing } from '../services/sideDishService';
+import { Macros } from '../types';
 
 interface Props {
   approvedDishes: Dish[];
@@ -209,6 +211,33 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
           return { day, lunch: null, dinner: null, isLocked: false };
         });
 
+      // --- MACRO BALANCING (Post-Generation Pass) ---
+      // Iterate again to apply sides if deficits exist
+      newPlan.forEach(day => {
+        if (day.isLocked) return;
+
+        const totalProtein = (day.lunch?.macros.protein || 0) + (day.dinner?.macros.protein || 0);
+        const totalCals = (day.lunch?.macros.calories || 0) + (day.dinner?.macros.calories || 0);
+
+        const proteinDeficit = dailyProteinTarget - totalProtein;
+        const calDeficit = dailyCalorieTarget - totalCals;
+
+        if (proteinDeficit > 15) {
+          const deficit: Macros = { protein: proteinDeficit, calories: Math.max(0, calDeficit), carbs: 0, fat: 0 };
+          // Prioritize dinner for sides
+          const cuisine = day.dinner?.cuisine || day.lunch?.cuisine;
+          const side = getBestPairing(deficit, userProfile.dietaryPreference, cuisine);
+
+          if (side) {
+            if (day.dinner) {
+              day.dinner.sides = [side];
+            } else if (day.lunch) {
+              day.lunch.sides = [side];
+            }
+          }
+        }
+      });
+
       setWeekPlan(newPlan);
       onPlanUpdate(newPlan);
       setRegenerating(false);
@@ -261,6 +290,20 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
             remainingProtein
           );
           if (dinner) recentHistory.push(dinner.id);
+
+          // --- MAGIC FILL MACRO CHECK ---
+          const totalProtein = (lunch?.macros.protein || 0) + (dinner?.macros.protein || 0);
+          const totalCals = (lunch?.macros.calories || 0) + (dinner?.macros.calories || 0);
+
+          if (dailyProteinTarget - totalProtein > 15) {
+            const side = getBestPairing(
+              { protein: dailyProteinTarget - totalProtein, calories: dailyCalorieTarget - totalCals, carbs: 0, fat: 0 },
+              userProfile.dietaryPreference,
+              dinner?.cuisine
+            );
+            if (side && dinner) dinner.sides = [side];
+            else if (side && lunch) lunch.sides = [side];
+          }
 
           newPlan[i] = { ...newPlan[i], lunch, dinner };
         }
@@ -377,8 +420,8 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
         weekPlan.forEach(d => {
           if (!d.lunch && !d.dinner) return;
           message += `*${d.day}*\n`;
-          if (d.lunch) message += `☀️ ${d.lunch.localName}\n`;
-          if (d.dinner) message += `🌙 ${d.dinner.localName}\n`;
+          if (d.lunch) message += `☀️ ${d.lunch.localName || d.lunch.name}\n`;
+          if (d.dinner) message += `🌙 ${d.dinner.localName || d.dinner.name}\n`;
           message += `\n`;
         });
         message += `(AI Generation Failed - Sending Manual List)`;
@@ -386,7 +429,18 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
 
       // 3. Open WhatsApp
       const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
-      window.open(url, '_blank');
+
+      // WhatsApp URL max length safety check
+      if (url.length > 2000) {
+        try {
+          await navigator.clipboard.writeText(message);
+          alert("Message is too long for direct link. Copied to clipboard! Open WhatsApp and paste it.");
+        } catch (err) {
+          alert("Message is too long and clipboard access failed.");
+        }
+      } else {
+        window.open(url, '_blank');
+      }
     } catch (e) {
       alert("Failed to generate instructions");
     } finally {
@@ -526,6 +580,12 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
                               ↳ {getMealSuggestion(dayPlan.lunch.name)}
                             </p>
                           )}
+                          {/* Side Dish Display */}
+                          {dayPlan.lunch.sides?.map(side => (
+                            <div key={side.id} className="mt-1 flex items-center gap-1 text-[10px] text-green-600 bg-green-50 px-1.5 py-0.5 rounded w-fit">
+                              + {side.name} ({side.macros.protein}g P)
+                            </div>
+                          ))}
                         </div>
                       ) : (
                         <button
@@ -580,6 +640,12 @@ const WeeklyPlanner: React.FC<Props> = ({ approvedDishes, userProfile, onPlanUpd
                               ↳ {getMealSuggestion(dayPlan.dinner.name)}
                             </p>
                           )}
+                          {/* Side Dish Display */}
+                          {dayPlan.dinner.sides?.map(side => (
+                            <div key={side.id} className="mt-1 flex items-center gap-1 text-[10px] text-green-600 bg-green-50 px-1.5 py-0.5 rounded w-fit">
+                              + {side.name} ({side.macros.protein}g P)
+                            </div>
+                          ))}
                         </div>
                       ) : (
                         <button

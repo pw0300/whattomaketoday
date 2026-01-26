@@ -79,6 +79,61 @@ export const generate = functions.https.onRequest((req, res) => {
     });
 });
 
+
+export const vectorSearch = functions.https.onRequest((req, res) => {
+    corsHandler(req, res, async () => {
+        if (req.method !== 'POST') {
+            res.status(405).send('Method Not Allowed');
+            return;
+        }
+
+        try {
+            const { query, topK = 5, namespace = 'default' } = req.body;
+
+            // 1. Secrets
+            const geminiKey = process.env.GEMINI_API_KEY || functions.config().gemini?.key;
+            const pineconeKey = process.env.PINECONE_API_KEY || functions.config().pinecone?.key; // Set via: firebase functions:config:set pinecone.key="..."
+
+            if (!geminiKey || !pineconeKey) {
+                console.error("Missing Keys");
+                res.status(500).json({ error: 'Server Config Error: Missing Keys' });
+                return;
+            }
+
+            // 2. Generate Embedding (Gemini)
+            const genAI = new GoogleGenerativeAI(geminiKey);
+            const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
+            const result = await model.embedContent(query);
+            const embedding = result.embedding.values;
+
+            if (!embedding) {
+                res.status(500).json({ error: 'Failed to generate embedding' });
+                return;
+            }
+
+            // 3. Query Pinecone (Node SDK)
+            // Dynamic import not needed here as we are in Node env, but standard import is fine
+            const { Pinecone } = require('@pinecone-database/pinecone');
+            const pc = new Pinecone({ apiKey: pineconeKey });
+            const index = pc.index("tadkasync-main");
+
+            const queryResponse = await index.namespace(namespace).query({
+                vector: embedding,
+                topK: topK,
+                includeMetadata: true
+            });
+
+            console.log(`[VectorSearch] Query: "${query.substring(0, 20)}..." -> ${queryResponse.matches?.length || 0} matches`);
+
+            res.json({ matches: queryResponse.matches || [] });
+
+        } catch (error: any) {
+            console.error("[VectorSearch] Error:", error);
+            res.status(500).json({ error: error.message });
+        }
+    });
+});
+
 /**
  * Scheduled Jobs
  */

@@ -1,6 +1,6 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { generateNewDishes, isValidDish, buildConstraintPrompt, buildRecipePrompt, buildSeededRecipePrompt } from './geminiService';
+import { generateNewDishes, isValidDish, buildDynamicConstraintPrompt, buildRecipePrompt, buildSeededRecipePrompt } from './geminiService';
 
 // Mock Firebase to prevent real cache from interfering
 vi.mock('./firebaseService', () => ({
@@ -14,6 +14,15 @@ vi.mock('./userHistoryService', () => ({
     getUserHistory: vi.fn().mockResolvedValue(null),
     analyzeUserPreferences: vi.fn().mockReturnValue(''),
     filterUnseenDishes: vi.fn((dishes) => dishes)
+}));
+
+// Mock knowledgeGraphService
+vi.mock('./knowledgeGraphService', () => ({
+    knowledgeGraph: {
+        getRelevantSafetyContext: vi.fn().mockResolvedValue(''),
+        suggestDishes: vi.fn().mockResolvedValue([]),
+        isDishContextSafe: vi.fn().mockReturnValue(true)
+    }
 }));
 
 // Mock pineconeService to prevent real vector search
@@ -76,22 +85,23 @@ describe('geminiService', () => {
             expect(isValidDish({ name: 'Test', description: 'Short', cuisine: 'Indian', type: 'Lunch' })).toBe(false);
         });
 
-        it('should reject null input', () => {
+        it('should reject dish with null input', () => {
             expect(isValidDish(null)).toBe(false);
         });
     });
 
-    describe('buildConstraintPrompt', () => {
-        it('should build constraints from profile', () => {
+    describe('buildDynamicConstraintPrompt', () => {
+        it('should build constraints from profile', async () => {
             const profile: any = {
                 dietaryPreference: 'Vegetarian',
                 allergens: ['Dairy', 'Nuts'],
                 conditions: ['Diabetes'],
                 cuisines: ['Italian', 'Mexican'],
-                likedDishes: ['Pizza']
+                likedDishes: ['Pizza'],
+                cuisineNotes: '' // required for async calls possibly
             };
 
-            const result = buildConstraintPrompt(profile);
+            const result = await buildDynamicConstraintPrompt(profile);
 
             expect(result).toContain('Vegetarian');
             expect(result).toContain('Dairy');
@@ -100,7 +110,7 @@ describe('geminiService', () => {
             expect(result).toContain('Italian');
         });
 
-        it('should return empty for "Any" diet with no restrictions', () => {
+        it('should return empty for "Any" diet with no restrictions', async () => {
             const profile: any = {
                 dietaryPreference: 'Any',
                 allergens: [],
@@ -108,10 +118,25 @@ describe('geminiService', () => {
                 cuisines: []
             };
 
-            const result = buildConstraintPrompt(profile);
+            // It might return prompt for knowledge graph safety check even with Any,
+            // but if no allergens/conditions, it should be minimal.
+            // buildDynamicConstraintPrompt always calls loadKnowledgeGraph now.
+
+            const result = await buildDynamicConstraintPrompt(profile);
+            // If completely empty, it returns just what minimal logic adds.
+            // The original test expected empty string. Let's see if that holds.
+            // If logic changed to include optional parts or "Diet: Any" is skipped...
+            // "Diet: Any" is skipped in code: if (profile.dietaryPreference !== 'Any') parts.push...
+            // So result should be fairly empty if no other flags.
+
+            // However, the function returns concatenated string. 
+            // If parts is empty, context is empty.
+            // Then optional parts... none.
+            // So it should be empty.
             expect(result).toBe('');
         });
     });
+
 
     describe('generateNewDishes', () => {
         it('should generate dishes via API when cache is empty', async () => {

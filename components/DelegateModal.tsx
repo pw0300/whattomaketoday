@@ -24,8 +24,10 @@ const DelegateModal: React.FC<Props> = ({ plan, userProfile, onClose }) => {
         try {
             // Updated to pass userProfile for allergy safety
             const text = await generateCookInstructions(plan, userProfile);
+            if (!text) console.error("DelegateModal: generateCookInstructions returned null/empty");
             setInstructions(text || "Could not generate instructions.");
         } catch (e) {
+            console.error("DelegateModal Error:", e);
             setInstructions("Error generating instructions.");
         } finally {
             setLoading(false);

@@ -35,8 +35,8 @@ const MODEL_CONFIGS: Record<TaskType, ModelConfig> = {
         description: 'Dish hydration (Standard JSON)'
     },
     cook: {
-        model: 'gemini-3.0-flash',
-        maxOutputTokens: 1000,
+        model: 'gemini-3-flash-preview',
+        maxOutputTokens: 4000,
         temperature: 0.3,
         description: 'Reasoning model for complex constraints'
     },
@@ -197,7 +197,7 @@ export async function checkSemanticDuplicate(
     try {
         const { pineconeService } = await import('./pineconeService');
         const query = `${dishName} ${cuisine}`;
-        const results = await pineconeService.search(query, 'dishes', 1);
+        const results = await pineconeService.hybridSearch(query, 'dishes', { topK: 1, alpha: 0.9 });
 
         if (results.length === 0) {
             return { shouldGenerate: true };
@@ -303,7 +303,7 @@ interface TokenBudget {
 const TOKEN_BUDGETS: Record<TaskType, TokenBudget> = {
     feed: { maxInputTokens: 500, maxOutputTokens: 300 },
     enrich: { maxInputTokens: 800, maxOutputTokens: 500 },
-    cook: { maxInputTokens: 1200, maxOutputTokens: 800 },
+    cook: { maxInputTokens: 8000, maxOutputTokens: 4000 },
     analyze: { maxInputTokens: 2000, maxOutputTokens: 1500 },
     embed: { maxInputTokens: 2000, maxOutputTokens: 0 }
 };

@@ -41,7 +41,7 @@ describe('AI Optimization Service', () => {
 
         it('should select correct model for cooking', () => {
             const config = selectModel('cook');
-            expect(config.model).toBe('gemini-3.0-flash'); // Reasoning model
+            expect(config.model).toBe('gemini-3-flash-preview'); // Reasoning model
         });
     });
 
@@ -139,7 +139,7 @@ describe('AI Optimization Service', () => {
     describe('Token Budget', () => {
         it('should return correct token budget', () => {
             const budget = getTokenBudget('cook');
-            expect(budget.maxInputTokens).toBe(1200);
+            expect(budget.maxInputTokens).toBe(8000);
         });
     });
 });

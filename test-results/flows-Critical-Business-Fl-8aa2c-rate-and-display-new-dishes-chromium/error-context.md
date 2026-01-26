@@ -1,0 +1,50 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e3]:
+  - generic:
+    - generic [ref=e5]: TadkaSync.
+    - button "Sign In" [ref=e7] [cursor=pointer]:
+      - generic [ref=e8]: Sign In
+  - generic [ref=e11]:
+    - generic [ref=e12]:
+      - generic [ref=e13]:
+        - heading "Discover" [level=2] [ref=e14]
+        - generic [ref=e16]: Your Cookbook
+      - generic [ref=e18]:
+        - button "Swipe View" [ref=e19] [cursor=pointer]:
+          - img [ref=e20]
+        - button "Grid View" [ref=e24] [cursor=pointer]:
+          - img [ref=e25]
+    - generic [ref=e28]:
+      - generic [ref=e29]: Daily Goal
+      - generic [ref=e30]: 7/7
+    - generic [ref=e35]:
+      - img [ref=e37]
+      - heading "Hungry for More?" [level=3] [ref=e40]
+      - paragraph [ref=e41]: You've viewed this batch. Ready for 10 fresh ideas?
+      - button "Generate More" [active] [ref=e42] [cursor=pointer]
+    - generic [ref=e43]:
+      - button [ref=e44] [cursor=pointer]:
+        - img [ref=e45]
+      - button [disabled] [ref=e48]:
+        - img [ref=e49]
+      - button [disabled] [ref=e52]:
+        - img [ref=e53]
+      - button [disabled] [ref=e55]:
+        - img [ref=e56]
+  - generic [ref=e58]:
+    - button "Discover" [ref=e59] [cursor=pointer]:
+      - img [ref=e60]
+      - generic: Discover
+    - button "Plan" [ref=e64] [cursor=pointer]:
+      - img [ref=e65]
+    - button "Shop" [ref=e70] [cursor=pointer]:
+      - img [ref=e71]
+    - button "Journal" [ref=e74] [cursor=pointer]:
+      - img [ref=e75]
+    - button "Pantry" [ref=e77] [cursor=pointer]:
+      - img [ref=e78]
+    - button "Me" [ref=e82] [cursor=pointer]:
+      - img [ref=e83]
+```

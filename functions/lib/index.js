@@ -26,7 +26,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.weeklyTrendAnalysis = exports.dailyIngredientEnrichment = exports.generate = void 0;
+exports.weeklyTrendAnalysis = exports.dailyIngredientEnrichment = exports.vectorSearch = exports.generate = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const generative_ai_1 = require("@google/generative-ai");
@@ -90,6 +90,51 @@ exports.generate = functions.https.onRequest((req, res) => {
                 error: 'Failed to generate content',
                 details: error.message
             });
+        }
+    });
+});
+exports.vectorSearch = functions.https.onRequest((req, res) => {
+    corsHandler(req, res, async () => {
+        var _a, _b, _c;
+        if (req.method !== 'POST') {
+            res.status(405).send('Method Not Allowed');
+            return;
+        }
+        try {
+            const { query, topK = 5, namespace = 'default' } = req.body;
+            // 1. Secrets
+            const geminiKey = process.env.GEMINI_API_KEY || ((_a = functions.config().gemini) === null || _a === void 0 ? void 0 : _a.key);
+            const pineconeKey = process.env.PINECONE_API_KEY || ((_b = functions.config().pinecone) === null || _b === void 0 ? void 0 : _b.key); // Set via: firebase functions:config:set pinecone.key="..."
+            if (!geminiKey || !pineconeKey) {
+                console.error("Missing Keys");
+                res.status(500).json({ error: 'Server Config Error: Missing Keys' });
+                return;
+            }
+            // 2. Generate Embedding (Gemini)
+            const genAI = new generative_ai_1.GoogleGenerativeAI(geminiKey);
+            const model = genAI.getGenerativeModel({ model: "text-embedding-004" });
+            const result = await model.embedContent(query);
+            const embedding = result.embedding.values;
+            if (!embedding) {
+                res.status(500).json({ error: 'Failed to generate embedding' });
+                return;
+            }
+            // 3. Query Pinecone (Node SDK)
+            // Dynamic import not needed here as we are in Node env, but standard import is fine
+            const { Pinecone } = require('@pinecone-database/pinecone');
+            const pc = new Pinecone({ apiKey: pineconeKey });
+            const index = pc.index("tadkasync-main");
+            const queryResponse = await index.namespace(namespace).query({
+                vector: embedding,
+                topK: topK,
+                includeMetadata: true
+            });
+            console.log(`[VectorSearch] Query: "${query.substring(0, 20)}..." -> ${((_c = queryResponse.matches) === null || _c === void 0 ? void 0 : _c.length) || 0} matches`);
+            res.json({ matches: queryResponse.matches || [] });
+        }
+        catch (error) {
+            console.error("[VectorSearch] Error:", error);
+            res.status(500).json({ error: error.message });
         }
     });
 });

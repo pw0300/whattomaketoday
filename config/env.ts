@@ -17,6 +17,10 @@ interface EnvConfig {
         apiKey: string; // Server-side preferred, but falls back to VITE_ for client-only modes if necessary
         defaultModel: string; // Default Gemini model to use
     };
+    pinecone: {
+        apiKey: string;
+        indexHost: string;
+    };
 }
 
 const getReq = (key: string): string => {
@@ -76,6 +80,10 @@ export const env: EnvConfig = {
     gemini: {
         apiKey: getGeminiKey(),
         defaultModel: getEnvWithDefault('GEMINI_MODEL', 'gemini-2.0-flash'),
+    },
+    pinecone: {
+        apiKey: getEnvWithDefault('PINECONE_API_KEY', ''),
+        indexHost: getEnvWithDefault('PINECONE_INDEX_HOST', ''),
     }
 };
 

@@ -165,15 +165,19 @@ export const useStore = create<AppStore>()(
             storage: createJSONStorage(() => localStorage),
             partialize: (state) => ({
                 userProfile: state.userProfile,
-                approvedDishes: state.approvedDishes.slice(-50), // BOUNTY FIX: Storage Bomb Defused (Keep last 50)
-                availableDishes: state.availableDishes.slice(0, 10), // Limit to avoid Storage Quota Exceeded
+                // AGGRESSIVE CLAMP: Only keep last 20 approved dishes to prevent quota bomb
+                approvedDishes: state.approvedDishes.slice(-20),
+                // Only keep actual current swipe deck, max 5 items
+                availableDishes: state.availableDishes.slice(0, 5),
                 weeklyPlan: state.weeklyPlan,
                 pantryStock: state.pantryStock,
             }),
-            onRehydrateStorage: () => (state) => {
-                console.log('[useStore] Rehydrated from localStorage');
-                if (state) {
-                    console.warn('[Sync Checks] Store overwritten by Tab Sync/Reload. Check for lost data if editing.');
+            onRehydrateStorage: () => (state, error) => {
+                if (error) {
+                    console.error('[useStore] Rehydration Failed:', error);
+                    localStorage.removeItem(STORAGE_KEYS.PROFILE); // Emergency self-heal
+                } else {
+                    console.log('[useStore] Rehydrated from localStorage');
                 }
             },
         }

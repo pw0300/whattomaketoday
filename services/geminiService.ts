@@ -1,4 +1,6 @@
-import { Type, Modality } from "@google/genai";
+import { SchemaType } from "@google/generative-ai";
+// Modality not needed or mapped
+const Type = SchemaType; // Map Type to SchemaType to avoid changing all usages below
 import { Dish, UserProfile, VibeMode, ImageSize, DayPlan } from '../types.ts';
 import { db } from './firebaseService.ts';
 import { collection, addDoc, getDocs, query, limit, Timestamp } from 'firebase/firestore';
@@ -6,6 +8,7 @@ import { chunkArray } from '../utils/asyncUtils';
 
 import { sanitizeForFirestore } from '../utils/firestoreUtils.ts';
 import { estimateTokens } from '../utils/tokenUtils';
+import { CORE_SYSTEM_PROMPT } from '../config/system_instructions';
 
 // --- DYNAMIC LOADERS ---
 const loadKnowledgeGraph = async () => {
@@ -31,7 +34,9 @@ export const cacheGeneratedDishes = async (dishes: Dish[]) => {
         ]
       };
       const cleanCacheable = sanitizeForFirestore(cacheable);
-      return addDoc(collection(db, CACHE_COLLECTION), cleanCacheable);
+      // CLIENT-SIDE WRITE DISABLED: Use Admin SDK or Cloud Functions to populate cache
+      // return addDoc(collection(db, CACHE_COLLECTION), cleanCacheable);
+      return Promise.resolve(); // No-op
     });
     await Promise.all(promises);
     console.log(`[Cache] Saved ${dishes.length} dishes to Firestore.`);
@@ -208,7 +213,7 @@ export const getConstrainedContext = (context: string, maxTokens: number): strin
   return context.slice(0, maxTokens * 4);
 };
 
-const buildDynamicConstraintPrompt = async (profile: UserProfile): Promise<string> => {
+export const buildDynamicConstraintPrompt = async (profile: UserProfile): Promise<string> => {
   const knowledgeGraph = await loadKnowledgeGraph();
   const parts = [];
   if (profile.dietaryPreference !== 'Any') parts.push(`Diet: ${profile.dietaryPreference}`);
@@ -270,6 +275,27 @@ export const isValidDish = (dish: any): boolean => {
     console.debug("[Validation] FAILED: Missing type");
     return false;
   }
+
+  // --- QUALITY & HALLUCINATION CHECK ---
+  const invalidNames = [
+    'recipe', 'dish', 'meal', 'food', 'breakfast', 'lunch', 'dinner', 'snack',
+    'dairy-free', 'gluten-free', 'vegan', 'vegetarian', 'paleo', 'keto',
+    'unknown', 'generated', 'ai'
+  ];
+  const lowerName = dish.name.toLowerCase();
+
+  // 1. Check for exact generic names or "X Recipe" patterns
+  if (invalidNames.includes(lowerName)) {
+    console.debug(`[Validation] FAILED: Generic name "${dish.name}"`);
+    return false;
+  }
+
+  // 2. Check for "Free Recipe" patterns (e.g. "Dairy-Free and Egg-Free Recipe")
+  if (lowerName.includes('free recipe') || lowerName.includes('free dish')) {
+    console.debug(`[Validation] FAILED: Hallucinated constraint-name "${dish.name}"`);
+    return false;
+  }
+
   return true;
 };
 
@@ -298,7 +324,8 @@ export const buildRecipePrompt = (constraints: string, userCuisines?: string[]):
     : '';
 
   // MINIMAL PROMPT - schema enforces structure, no need for verbose instructions
-  return `${constraintSection}${targetCuisine} ${randomTechnique} dish. Seed:${seed}`;
+  // INJECT SYSTEM PROMPT FOR CONSISTENCY
+  return `${CORE_SYSTEM_PROMPT}\n\n${constraintSection}${targetCuisine} ${randomTechnique} dish. Seed:${seed}`;
 };
 
 /**
@@ -354,8 +381,16 @@ export const secureGenerate = async (
   taskType: TaskType = 'feed'
 ) => {
   // Coalesce identical requests (Dedup)
+  // Coalesce identical requests (Dedup)
   const promptStr = typeof prompt === 'string' ? prompt : JSON.stringify(prompt);
-  const coalesceKey = `gen:${taskType}:${promptStr.slice(0, 50)}:${JSON.stringify(schema).length}`;
+
+  // FIX: Use simple hash of full prompt to avoid collision on common prefixes
+  let hash = 0;
+  for (let i = 0; i < promptStr.length; i++) {
+    hash = ((hash << 5) - hash) + promptStr.charCodeAt(i);
+    hash |= 0; // Convert to 32bit integer
+  }
+  const coalesceKey = `gen:${taskType}:${hash}:${JSON.stringify(schema).length}`;
 
   return requestCoalescer.request(coalesceKey, async () => {
     return retryWithBackoff(async () => {
@@ -594,10 +629,19 @@ export const generateNewDishes = async (
         const { pineconeService } = await import('./pineconeService');
 
         // Create a search query based on current context
-        const queryText = `${constraints} ${userProfile.cuisines.join(' ')} ${contextManager.getCondensedMemory()?.summary || ''}`.trim();
-        console.log(`[Gemini] Semantic Search Query: "${queryText.slice(0, 50)}..."`);
+        // Safety: Condense context instead of blunt truncation.
+        // We prioritize constraints and condensed memory, then add a representative sample of cuisines.
+        const cuisineSample = (userProfile.cuisines || []).length > 5
+          ? `${userProfile.cuisines.slice(0, 3).join(', ')} and ${userProfile.cuisines.length - 3} others`
+          : userProfile.cuisines.join(', ');
 
-        const similar = await pineconeService.search(queryText, 'dishes', count * 2);
+        const memoryContext = contextManager.getCondensedMemory()?.summary || '';
+        const queryText = `Search for: ${constraints}. User prefers: ${cuisineSample}. Recent Context: ${memoryContext}`.trim();
+
+        console.log(`[Gemini] Semantic Search Query (Condensed): "${queryText.slice(0, 75)}..."`);
+
+        // Use Hybrid search for better cold-start (combines keyword + semantic)
+        const similar = await pineconeService.hybridSearch(queryText, 'dishes', { topK: count * 2, userInteractionCount: 5 });
 
         // Map metadata back to Dish objects
         vectorCached = similar
@@ -782,38 +826,123 @@ export const generateNewDishesProgressive = async (
   count: number,
   userProfile: UserProfile,
   onDishReady: (dish: Dish) => void,
-  context: VibeMode = 'Explorer'
+  context: VibeMode = 'Explorer',
+  avoidNames: string[] = []
 ): Promise<void> => {
   const constraints = await buildDynamicConstraintPrompt(userProfile);
-  const prompt = buildRecipePrompt(constraints, userProfile.cuisines);
+  let currentAvoidList = [...avoidNames];
+  let dishesGenerated = 0;
 
-  const tasks = Array.from({ length: count }).map(async () => {
-    // Use retry logic for each progressive dish
-    const result = await generateSingleDishWithRetry(prompt, 5);
+  // --- PHASE 1: RAG (Vector Search) ---
+  // Try to find existing unseen dishes in the "Second Brain" first
+  try {
+    const { pineconeService } = await import('./pineconeService');
+    const { contextManager } = await import('./contextManagerService');
 
-    if (result) {
-      const dish: Dish = {
-        ...result,
-        id: crypto.randomUUID(),
-        image: `https://picsum.photos/400/400?random=${Math.floor(Math.random() * 1000)}`,
-        ingredients: [],
-        instructions: [],
-        allergens: result.allergens || [],
-        nutrition: { calories: result.macros?.calories || 0, protein: 0, carbs: 0, fat: 0 },
-        isStaple: false
-      };
-      onDishReady(dish);
-      return dish;
+    const cuisineSample = (userProfile.cuisines || []).slice(0, 3).join(', ');
+    const memoryContext = contextManager.getCondensedMemory()?.summary || '';
+    const queryText = `Search for: ${constraints}. User prefers: ${cuisineSample}. Recent Context: ${memoryContext}`.trim();
+
+    console.log(`[Gemini RAG] Searching Second Brain for: "${queryText.slice(0, 50)}..."`);
+    // Use Hybrid Search with alpha balancing
+    const similar = await pineconeService.hybridSearch(queryText, 'dishes', { topK: count * 2, alpha: 0.6 });
+
+    const candidates = similar
+      .filter(match => match.score && match.score > 0.82) // Strict confidence
+      .map(match => match.metadata as unknown as Dish)
+      .filter(d => isValidDish(d));
+
+    for (const d of candidates) {
+      if (dishesGenerated >= count) break;
+      // Check against avoid list
+      if (!currentAvoidList.some(n => n.toLowerCase() === d.name.toLowerCase())) {
+        console.log(`[Gemini RAG] Found match in DB: ${d.name}`);
+        onDishReady(d);
+        currentAvoidList.push(d.name);
+        dishesGenerated++;
+      }
     }
-    return null;
-  });
+  } catch (e) {
+    console.warn("[Gemini RAG] Vector search failed, falling back to full generation:", e);
+  }
 
-  const results = await Promise.allSettled(tasks);
-  const dishes = results
-    .filter(r => r.status === 'fulfilled' && r.value)
-    .map(r => (r as PromiseFulfilledResult<Dish>).value);
+  // --- PHASE 2: GENERATION (Creative) ---
+  let attempts = 0;
+  const MAX_ATTEMPTS = 3;
 
-  if (dishes.length > 0) cacheGeneratedDishes(dishes);
+  while (dishesGenerated < count && attempts < MAX_ATTEMPTS) {
+    const needed = count - dishesGenerated;
+    // Over-fetch slightly to account for validation failures/dupes
+    const batchSize = Math.ceil(needed * 1.2);
+
+    const exclusionSuffix = currentAvoidList.length > 0
+      ? `\nDo NOT suggest these dishes (already seen): ${currentAvoidList.slice(-20).join(', ')}`
+      : '';
+
+    // For subsequent attempts, relax constraints if we're struggling
+    const modePrompt = (attempts > 0 && context !== 'Surprise')
+      ? `Generate UNIQUE, DISTINCT dishes. Be creative.`
+      : '';
+
+    const basePrompt = buildRecipePrompt(constraints, userProfile.cuisines);
+    // INJECT SYSTEM PROMPT (Ensures Consistency even in Retries)
+    const { CORE_SYSTEM_PROMPT } = require('../config/system_instructions');
+    const prompt = `${CORE_SYSTEM_PROMPT}\n\n${basePrompt}${exclusionSuffix} ${modePrompt}`;
+
+    const tasks = Array.from({ length: batchSize }).map(async () => {
+      const result = await generateSingleDishWithRetry(prompt, 5);
+
+      if (result && isValidDish(result)) {
+        // Internal Dedup check against avoid list (case insensitive)
+        if (currentAvoidList.some(n => n.toLowerCase() === result.name.toLowerCase())) {
+          return null;
+        }
+
+        const dish: Dish = {
+          ...result,
+          id: crypto.randomUUID(),
+          image: `https://picsum.photos/400/400?random=${Math.floor(Math.random() * 1000)}`,
+          ingredients: [],
+          instructions: [],
+          allergens: result.allergens || [],
+          nutrition: { calories: result.macros?.calories || 0, protein: 0, carbs: 0, fat: 0 },
+          isStaple: false
+        };
+        return dish;
+      }
+      return null;
+    });
+
+    const results = await Promise.allSettled(tasks);
+    const batchDishes = results
+      .filter(r => r.status === 'fulfilled' && r.value)
+      .map(r => (r as PromiseFulfilledResult<Dish>).value);
+
+    // Deduplicate within the batch itself
+    const uniqueBatch: Dish[] = [];
+    const seenInBatch = new Set<string>();
+
+    for (const d of batchDishes) {
+      if (!seenInBatch.has(d.name.toLowerCase())) {
+        uniqueBatch.push(d);
+        seenInBatch.add(d.name.toLowerCase());
+      }
+    }
+
+    for (const dish of uniqueBatch) {
+      if (dishesGenerated < count) {
+        onDishReady(dish);
+        currentAvoidList.push(dish.name); // Update local avoid list for next loop
+        dishesGenerated++;
+      }
+    }
+
+    attempts++;
+    if (dishesGenerated >= count) break;
+  }
+
+  // Cache whatever we found
+  // (We don't have the full list here easily without reconstructing, but we can rely on per-dish handling)
 };
 
 export const enrichDishDetails = async (dish: Dish, userProfile?: UserProfile): Promise<Dish> => {
@@ -833,7 +962,8 @@ export const enrichDishDetails = async (dish: Dish, userProfile?: UserProfile): 
     // 2. Fetch Similar Recipes from Vector DB to guide style
     let styleHint = '';
     try {
-      const similar = await pineconeService.search(`${dish.name} ${dish.cuisine}`, 'dishes', 2);
+      // Hybrid search to match "Butter Chicken" specifically but also "Rich Tomato Curries"
+      const similar = await pineconeService.hybridSearch(`${dish.name} ${dish.cuisine}`, 'dishes', { topK: 2, alpha: 0.7 });
       if (similar.length > 0) {
         const examples = similar.map(m => (m.metadata as any)?.name).filter(Boolean).join(', ');
         styleHint = examples ? `Reference style from: ${examples}.` : '';
@@ -973,16 +1103,19 @@ export const generateCookInstructions = async (plan: DayPlan[], userProfile?: Us
     // Truncate menu summary if too long (unlikely but safe)
     const cleanMenu = menuSummary.slice(0, 1000);
 
-    const prompt = `Create a WhatsApp message for the cook.
-    DO NOT include any greeting (no "Namaste", "Sun", "Hey", etc). Start directly with the menu/instructions.
+    const prompt = `ROLE: You are an intelligent kitchen assistant for an Indian household. Your goal is to communicate strict cooking instructions to the house help (maid/cook) in simple, easy-to-understand Hinglish.
 
     INPUT DATA:
-    Menu: ${cleanMenu}
-    User Constraints: ${safetyWarning}
-    Recent Context: ${sessionContext}
-    Knowledge Graph Safety Rules:
-    ${kgContext}
-    ${vectorPrepTips}
+    - Menu: ${cleanMenu}
+    - Critical Constraints: ${safetyWarning}
+    - Safety Rules (KG): ${kgContext}
+    - Prep Tips: ${vectorPrepTips}
+    - User Context: ${sessionContext}
+
+    STRICT INSTRUCTIONS:
+    1. **No Greetings**: Do NOT use "Namaste", "Hello", "Sun", etc. Start immediately with "Aaj ka Menu".
+    2. **Tone**: Direct, authoritative but respectful.
+    3. **Language**: "Simple HINGLISH" (Hindi in English script). Avoid complex English words.
 
     TASK:
     1.  **Analyze (Internal Monologue)**: 
@@ -991,7 +1124,23 @@ export const generateCookInstructions = async (plan: DayPlan[], userProfile?: Us
         - If conflict found -> Suggest Substitute from KG (e.g., Tofu) or plan specific warning ("Paneer mat dalna").
         - If User has Diabetes -> Check rich dishes -> Plan modification (e.g., "Use less oil/sugar").
     
-    2.  **Generate Message**: Write the final Hinglish WhatsApp message based on your analysis.
+    2.  **Generate Message**: Write the final message in **SimpleHINGLISH** (Hindi written in English text) that is easily readable by a house help/maid.
+        - Use simple words (e.g., use "mat dalna" instead of "exclude", "kam tel" instead of "low oil").
+        - Tone: Direct, respectful, and clear instructions.
+        - Structure:
+          * "Aaj ka Menu:" (List dishes)
+          * "Zaroori Baat:" (Safety constraints like "no sugar", "no nuts" in simple Hinglish)
+          * "Tayari:" (Prep tips if any)
+          
+        EXAMPLE OUTPUT FORMAT:
+        "Aaj ka Menu:
+        Lunch: Rajma Chawal
+        Dinner: Bhindi Masala
+        
+        Zaroori Baat:
+        - Rajma me soda mat dalna.
+        - Bhindi me kam tel use karna (Diabetes).
+        - Strictly koi nuts nahi hone chahiye."
 
     OUTPUT FORMAT (JSON):
     {

@@ -103,7 +103,7 @@ class StreamingResponseService {
                 // Try to find these dishes in vector DB
                 const pineconeService = await loadPineconeService();
                 for (const dishName of sampleDishes.slice(0, 3)) {
-                    const results = await pineconeService.search(dishName, 'dishes', 1);
+                    const results = await pineconeService.hybridSearch(dishName, 'dishes', { topK: 1 });
                     if (results.length > 0 && results[0].metadata) {
                         const dish = results[0].metadata as unknown as Dish;
                         if (dish.name && dish.description) {
@@ -115,7 +115,7 @@ class StreamingResponseService {
                 // For returning users, use semantic search with profile context
                 const pineconeService = await loadPineconeService();
                 const queryText = `${userProfile.cuisines.join(' ')} ${userProfile.dietaryPreference} dishes`;
-                const similar = await pineconeService.search(queryText, 'dishes', 5);
+                const similar = await pineconeService.hybridSearch(queryText, 'dishes', { topK: 5 });
                 tier2Dishes = similar
                     .filter(m => m.score && m.score > 0.8)
                     .map(m => m.metadata as unknown as Dish)

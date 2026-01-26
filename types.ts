@@ -71,6 +71,7 @@ export interface Dish {
   type: 'Breakfast' | 'Lunch' | 'Dinner' | 'Snack';
   image: string;
   macros: Macros;
+  sides?: Dish[]; // Auto-suggested sides for macro balancing
   ingredients: Ingredient[];
   instructions: string[];
   tags: string[];
@@ -116,7 +117,7 @@ export enum AppView {
   Profile = 'Profile'
 }
 
-export type VibeMode = 'Strict' | 'Comfort' | 'Explorer';
+export type VibeMode = 'Strict' | 'Comfort' | 'Explorer' | 'Surprise';
 
 export type ImageSize = '1K' | '2K' | '4K';
 

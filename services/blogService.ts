@@ -395,14 +395,9 @@ const SAMPLE_POSTS: BlogPost[] = [
 ];
 
 export const getBlogPosts = async (): Promise<BlogPost[]> => {
-    // Simulate API delay
-    return new Promise((resolve) => {
-        setTimeout(() => resolve(SAMPLE_POSTS), 500);
-    });
+    return Promise.resolve(SAMPLE_POSTS);
 };
 
 export const getBlogPostBySlug = async (slug: string): Promise<BlogPost | undefined> => {
-    return new Promise((resolve) => {
-        setTimeout(() => resolve(SAMPLE_POSTS.find(p => p.slug === slug)), 300);
-    });
+    return Promise.resolve(SAMPLE_POSTS.find(p => p.slug === slug));
 };

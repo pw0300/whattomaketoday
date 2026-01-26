@@ -12,6 +12,13 @@ export default defineConfig(({ mode }) => {
       port: 3000,
       host: '0.0.0.0',
     },
+    // Define globals for browser compatibility.
+    // Standard Vite config handles process.env.NODE_ENV automatically.
+    // We rely on standard Vite behavior which does NOT expose non-VITE_ env vars.
+    define: {
+      'global': 'window',
+    },
+
     plugins: [
       react(),
       {
@@ -118,16 +125,16 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
-        // Polyfill or ignore Node modules that might leak from SDKs
-        'fs': 'path-browserify',
+        // Polyfill Node modules for browser
+        '@pinecone-database/pinecone': path.resolve(__dirname, './utils/mockPinecone.ts'),
         'path': 'path-browserify',
         'os': 'os-browserify',
         'crypto': 'crypto-browserify',
+        'stream': 'stream-browserify',
       }
     },
     build: {
       rollupOptions: {
-        external: ['@pinecone-database/pinecone'],
         output: {
           manualChunks: {
             'vendor-ai': ['@google/generative-ai', 'framer-motion'],

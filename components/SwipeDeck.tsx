@@ -3,6 +3,7 @@ import { motion, useMotionValue, useTransform, PanInfo, AnimatePresence } from '
 import { Dish, SwipeDirection, ImageSize, UserProfile, PantryItem } from '../types';
 import { Heart, X, Star, Link2, Sparkles, Loader2, UploadCloud, Info, Quote, ShoppingBasket, MessageSquarePlus, RefreshCcw, RotateCcw, Grid3X3, Layers, Search, Trash2, Edit, PackageCheck, BrainCircuit, Terminal, Globe } from 'lucide-react';
 import { analyzeAndGenerateDish } from '../services/geminiService';
+import { calculateHealthScore, getHealthColor } from '../utils/healthScoring';
 
 interface Props {
     dishes: Dish[];
@@ -17,6 +18,7 @@ interface Props {
     userProfile: UserProfile;
     initialImportTab?: 'text' | 'image' | 'video' | 'pantry' | null;
     fetchingMore?: boolean;
+    onRequestMore: () => void;
 }
 
 type ImportTab = 'text' | 'image' | 'video' | 'pantry';
@@ -30,7 +32,7 @@ const LOADING_STEPS = [
     { label: "Preparing cards", icon: Terminal }
 ];
 
-const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onSwipe, onUndo, onModify, onImport, onDelete, pantryStock, userProfile, initialImportTab, fetchingMore }) => {
+const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onSwipe, onUndo, onModify, onImport, onDelete, pantryStock, userProfile, initialImportTab, fetchingMore, onRequestMore }) => {
     const [viewMode, setViewMode] = useState<ViewMode>('deck');
     const [activeIndex, setActiveIndex] = useState(0);
     const [loadingStep, setLoadingStep] = useState(0);
@@ -185,7 +187,7 @@ const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onS
             {viewMode === 'deck' ? (
                 <div className="relative flex-1 w-full flex items-center justify-center p-4 min-h-[400px]">
                     <AnimatePresence mode="wait">
-                        {isDeckEmpty ? (
+                        {isDeckEmpty && fetchingMore ? (
                             /* PREMIUM SOURCING CONSOLE */
                             <motion.div
                                 initial={{ opacity: 0, scale: 0.95 }}
@@ -246,6 +248,31 @@ const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onS
                                     </motion.button>
                                 </div>
                             </motion.div>
+                        ) : isDeckEmpty ? (
+                            /* MANUAL REFILL STATE */
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 1.05 }}
+                                key="refill"
+                                className="w-full max-w-xs aspect-[3/4.2] bg-white text-ink shadow-premium p-8 flex flex-col justify-center items-center relative overflow-hidden rounded-[32px] border border-gray-100"
+                            >
+                                <div className="text-center space-y-4">
+                                    <div className="bg-brand-50 p-6 rounded-full inline-block mb-2">
+                                        <Sparkles className="w-12 h-12 text-brand-500" />
+                                    </div>
+                                    <h3 className="text-2xl font-display font-bold text-ink">Hungry for More?</h3>
+                                    <p className="font-sans text-sm text-ink-light leading-relaxed">
+                                        You've viewed this batch. Ready for 10 fresh ideas?
+                                    </p>
+                                    <button
+                                        onClick={onRequestMore}
+                                        className="w-full py-4 bg-black text-white rounded-2xl font-bold uppercase tracking-wide hover:scale-105 active:scale-95 transition-all shadow-lg active:shadow-sm"
+                                    >
+                                        Generate More
+                                    </button>
+                                </div>
+                            </motion.div>
                         ) : (
                             /* PREMIUM CARD DECK */
                             <div key="deck" className="relative w-full max-w-xs aspect-[3/4.2]">
@@ -283,7 +310,6 @@ const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onS
                                                 </span>
                                                 {/* Health Score Badge */}
                                                 {(currentDish.macros || currentDish.healthTags) && (() => {
-                                                    const { calculateHealthScore, getHealthColor } = require('../utils/healthScoring');
                                                     const score = calculateHealthScore(currentDish);
                                                     const color = getHealthColor(score);
                                                     return (
@@ -377,62 +403,67 @@ const SwipeDeck: React.FC<Props> = ({ dishes, approvedDishes, approvedCount, onS
                         </motion.div>
                     ))}
                 </div>
-            )}
+            )
+            }
 
             {/* Global Controls - Floating Glass Bar */}
-            {viewMode === 'deck' && (
-                <div className="w-full px-8 pb-6 flex justify-center items-center gap-6 z-20">
-                    <button onClick={() => setShowImport(true)} className="w-12 h-12 flex items-center justify-center bg-white text-ink-light shadow-premium rounded-full hover:scale-110 active:scale-95 transition-all"><Link2 size={20} /></button>
+            {
+                viewMode === 'deck' && (
+                    <div className="w-full px-8 pb-6 flex justify-center items-center gap-6 z-20">
+                        <button onClick={() => setShowImport(true)} className="w-12 h-12 flex items-center justify-center bg-white text-ink-light shadow-premium rounded-full hover:scale-110 active:scale-95 transition-all"><Link2 size={20} /></button>
 
-                    <button
-                        onClick={() => { triggerFeedback(SwipeDirection.Left); onSwipe(currentDish?.id, SwipeDirection.Left); nextCard(); }}
-                        disabled={isDeckEmpty}
-                        className="w-16 h-16 flex items-center justify-center bg-white text-red-500 shadow-premium rounded-full hover:scale-110 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 border border-red-50 group"
-                    >
-                        <X size={28} strokeWidth={2.5} className="group-hover:rotate-90 transition-transform" />
-                    </button>
+                        <button
+                            onClick={() => { triggerFeedback(SwipeDirection.Left); onSwipe(currentDish?.id, SwipeDirection.Left); nextCard(); }}
+                            disabled={isDeckEmpty}
+                            className="w-16 h-16 flex items-center justify-center bg-white text-red-500 shadow-premium rounded-full hover:scale-110 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 border border-red-50 group"
+                        >
+                            <X size={28} strokeWidth={2.5} className="group-hover:rotate-90 transition-transform" />
+                        </button>
 
-                    <button
-                        onClick={() => { triggerFeedback(SwipeDirection.Up); onSwipe(currentDish?.id, SwipeDirection.Up); nextCard(); }}
-                        disabled={isDeckEmpty}
-                        className="w-12 h-12 flex items-center justify-center bg-white text-blue-500 shadow-premium rounded-full hover:scale-110 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 border border-blue-50"
-                    >
-                        <Star size={20} strokeWidth={2.5} fill="currentColor" className="text-blue-100" />
-                    </button>
+                        <button
+                            onClick={() => { triggerFeedback(SwipeDirection.Up); onSwipe(currentDish?.id, SwipeDirection.Up); nextCard(); }}
+                            disabled={isDeckEmpty}
+                            className="w-12 h-12 flex items-center justify-center bg-white text-blue-500 shadow-premium rounded-full hover:scale-110 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 border border-blue-50"
+                        >
+                            <Star size={20} strokeWidth={2.5} fill="currentColor" className="text-blue-100" />
+                        </button>
 
-                    <button
-                        onClick={() => { triggerFeedback(SwipeDirection.Right); onSwipe(currentDish?.id, SwipeDirection.Right); nextCard(); }}
-                        disabled={isDeckEmpty}
-                        className="w-16 h-16 flex items-center justify-center bg-gradient-brand text-white shadow-lg shadow-orange-500/40 rounded-full hover:scale-110 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 disabled:shadow-none"
-                    >
-                        <Heart size={28} strokeWidth={2.5} fill="rgba(255,255,255,0.2)" />
-                    </button>
-                </div>
-            )}
-
-            {showImport && (
-                <div className="fixed inset-0 z-[100] bg-ink/30 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
-                    <div className="bg-surface w-full max-w-sm shadow-2xl p-6 rounded-[32px] relative border border-white/20">
-                        <button onClick={() => setShowImport(false)} className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition"><X size={16} /></button>
-                        <h3 className="text-xl font-display font-bold text-ink mb-6 flex items-center gap-2"><Sparkles className="text-brand-500 fill-brand-500" size={18} /> Add Recipe</h3>
-                        <div className="flex gap-2 mb-6 p-1 bg-gray-50 rounded-xl">
-                            {(['text', 'image', 'pantry'] as ImportTab[]).map(t => (
-                                <button key={t} onClick={() => setImportTab(t)} className={`flex-1 py-2 rounded-lg font-sans text-[11px] font-bold uppercase tracking-wider transition-all ${importTab === t ? 'bg-white text-ink shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>{t}</button>
-                            ))}
-                        </div>
-                        <textarea
-                            value={inputText}
-                            onChange={(e) => setInputText(e.target.value)}
-                            className="w-full h-32 bg-gray-50 border-none p-4 font-sans text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 mb-6 rounded-2xl resize-none"
-                            placeholder="Describe dish or paste URL..."
-                        />
-                        <button onClick={handleMagicImport} disabled={isImporting} className="w-full bg-ink text-white font-bold py-4 rounded-2xl shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50">
-                            {isImporting ? <Loader2 className="animate-spin mx-auto" /> : "Add to Cookbook"}
+                        <button
+                            onClick={() => { triggerFeedback(SwipeDirection.Right); onSwipe(currentDish?.id, SwipeDirection.Right); nextCard(); }}
+                            disabled={isDeckEmpty}
+                            className="w-16 h-16 flex items-center justify-center bg-gradient-brand text-white shadow-lg shadow-orange-500/40 rounded-full hover:scale-110 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 disabled:shadow-none"
+                        >
+                            <Heart size={28} strokeWidth={2.5} fill="rgba(255,255,255,0.2)" />
                         </button>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+
+            {
+                showImport && (
+                    <div className="fixed inset-0 z-[100] bg-ink/30 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in">
+                        <div className="bg-surface w-full max-w-sm shadow-2xl p-6 rounded-[32px] relative border border-white/20">
+                            <button onClick={() => setShowImport(false)} className="absolute top-4 right-4 p-2 bg-gray-100 rounded-full hover:bg-gray-200 transition"><X size={16} /></button>
+                            <h3 className="text-xl font-display font-bold text-ink mb-6 flex items-center gap-2"><Sparkles className="text-brand-500 fill-brand-500" size={18} /> Add Recipe</h3>
+                            <div className="flex gap-2 mb-6 p-1 bg-gray-50 rounded-xl">
+                                {(['text', 'image', 'pantry'] as ImportTab[]).map(t => (
+                                    <button key={t} onClick={() => setImportTab(t)} className={`flex-1 py-2 rounded-lg font-sans text-[11px] font-bold uppercase tracking-wider transition-all ${importTab === t ? 'bg-white text-ink shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}>{t}</button>
+                                ))}
+                            </div>
+                            <textarea
+                                value={inputText}
+                                onChange={(e) => setInputText(e.target.value)}
+                                className="w-full h-32 bg-gray-50 border-none p-4 font-sans text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 mb-6 rounded-2xl resize-none"
+                                placeholder="Describe dish or paste URL..."
+                            />
+                            <button onClick={handleMagicImport} disabled={isImporting} className="w-full bg-ink text-white font-bold py-4 rounded-2xl shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50">
+                                {isImporting ? <Loader2 className="animate-spin mx-auto" /> : "Add to Cookbook"}
+                            </button>
+                        </div>
+                    </div>
+                )
+            }
+        </div >
     );
 };
 

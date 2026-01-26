@@ -1,0 +1,1 @@
+class s{constructor(e){console.warn("[Pinecone] Mock SDK initialized. This should not happen in browser logic explicitly.")}index(e){return{query:async()=>({matches:[]}),upsert:async()=>{},namespace:c=>({query:async()=>({matches:[]}),upsert:async()=>{}})}}}export{s as Pinecone};

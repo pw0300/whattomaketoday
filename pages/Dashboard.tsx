@@ -207,19 +207,10 @@ const Dashboard: React.FC = () => {
         // Recalculate unswiped based on new availableDishes (after removal)
         const remainingAfterSwipe = availableDishes.length - 1; // -1 for the dish we just swiped
 
-        // AGGRESSIVE Prefetching: Trigger when < 5 cards left. Use Progressive for instant display.
-        if (remainingAfterSwipe < 5 && !fetchingMore && userProfile) {
-            setFetchingMore(true);
-            generateNewDishesProgressive(3, userProfile, (newDish) => {
-                // Each dish appears instantly as it arrives - DEDUP by ID AND NAME
-                setAvailableDishes((prev) => {
-                    // Skip if already in available (by ID or name)
-                    if (prev.some(d => d.id === newDish.id || d.name.toLowerCase() === newDish.name.toLowerCase())) return prev;
-                    // Skip if already approved/liked (by name)
-                    if (approvedDishes.some(d => d.name.toLowerCase() === newDish.name.toLowerCase())) return prev;
-                    return [...prev, newDish];
-                });
-            }, 'Explorer').finally(() => setFetchingMore(false));
+        // MANUAL PAGINATION: No auto-refill.
+        // Determining if we are "low" is now just for UI hints if needed, but we rely on the empty state in SwipeDeck to trigger more.
+        if (availableDishes.length <= 1) {
+            console.log("[Dashboard] Deck empty/low. Waiting for user to request more.");
         }
     }, [availableDishes, approvedDishes, fetchingMore, setApprovedDishes, setAvailableDishes, setFetchingMore, userId, userProfile, setUserProfile]);
 
@@ -257,36 +248,35 @@ const Dashboard: React.FC = () => {
         const initialDishes = safeStarterDishes.slice(0, 3);
         const TARGET_DISHES = 10;
 
-        // 3. Display initial batch quickly
-        initialDishes.forEach((dish, index) => {
-            setTimeout(() => {
-                setAvailableDishes(prev => {
-                    if (prev.some(d => d.id === dish.id)) return prev;
-                    return [...prev, dish];
-                });
-                setCuratingDishCount(prev => prev + 1);
-                setRecentDishName(dish.name);
-            }, (index + 1) * 400);
+        // 3. Display initial batch INSTANTLY (No artificial delays)
+        setAvailableDishes(prev => {
+            // Basic dedup against existing (unlikely on fresh start but good practice)
+            const unique = initialDishes.filter(d => !prev.some(pd => pd.id === d.id));
+            return [...prev, ...unique];
         });
+        setCuratingDishCount(initialDishes.length);
+        if (initialDishes.length > 0) setRecentDishName(initialDishes[initialDishes.length - 1].name);
 
-        // 4. Start AI generation (High Priority)
+        // 4. Start AI generation (High Priority) to fill the rest of the batch
         const neededFromAI = TARGET_DISHES - initialDishes.length;
         if (neededFromAI > 0) {
-            setTimeout(() => {
-                generateNewDishesProgressive(
-                    neededFromAI,
-                    profile,
-                    (newDish) => {
-                        setAvailableDishes(prev => {
-                            if (prev.some(d => d.id === newDish.id || d.name.toLowerCase() === newDish.name.toLowerCase())) return prev;
-                            return [...prev, newDish];
-                        });
-                        setCuratingDishCount(prev => prev + 1);
-                        setRecentDishName(newDish.name);
-                    },
-                    'Explorer'
-                ).catch(e => console.error("[Curating] Generation error:", e));
-            }, 1000);
+            const avoidNames = [...initialDishes.map(d => d.name), ...approvedDishes.map(d => d.name)];
+            // Pass 'true' for isBackground to NOT block UI, but here we want to see it coming in
+            // actually we want "Curating" screen to show progress
+            generateNewDishesProgressive(
+                neededFromAI,
+                profile,
+                (newDish) => {
+                    setAvailableDishes(prev => {
+                        if (prev.some(d => d.id === newDish.id || d.name.toLowerCase() === newDish.name.toLowerCase())) return prev;
+                        return [...prev, newDish];
+                    });
+                    setCuratingDishCount(prev => prev + 1);
+                    setRecentDishName(newDish.name);
+                },
+                'Explorer',
+                avoidNames
+            ).catch(e => console.error("[Curating] Generation error:", e));
         }
     }, [currentUser, sessionId, approvedDishes, setAvailableDishes, setCuratingDishCount, setRecentDishName, setUserProfile, setCuratingProfile, setView]);
 
@@ -294,6 +284,54 @@ const Dashboard: React.FC = () => {
         setView(AppView.Swipe);
         setCuratingProfile(null);
     }, [setView, setCuratingProfile]);
+
+    const handleRequestMore = React.useCallback(async () => {
+        if (!userProfile) return;
+        setFetchingMore(true);
+
+        const avoidNames = [
+            ...availableDishes.map(d => d.name),
+            ...approvedDishes.map(d => d.name),
+            ...(userProfile.dislikedDishes || [])
+        ];
+
+        const startLength = availableDishes.length;
+
+        try {
+            await generateNewDishesProgressive(10, userProfile, (newDish) => {
+                setAvailableDishes((prev) => {
+                    if (prev.some(d => d.id === newDish.id || d.name.toLowerCase() === newDish.name.toLowerCase())) return prev;
+                    if (approvedDishes.some(d => d.name.toLowerCase() === newDish.name.toLowerCase())) return prev;
+                    return [...prev, newDish];
+                });
+            }, 'Explorer', avoidNames);
+
+            // RETRY STRATEGY: Check if we actually added anything
+            // We use a timeout to allow state updates to settle (simulated check via getAppState logic if needed, 
+            // but relying on local var isn't enough due to closures. We will trust the async flow).
+            // Actually, best way is to check the store directly or wait a tick.
+
+            setTimeout(() => {
+                const current = useStore.getState().availableDishes;
+                if (current.length === startLength) {
+                    console.log("[Dashboard] Generation yielded 0 new dishes. Retrying with loose constraints...");
+                    // Retry ONCE with fewer items and random seed context
+                    generateNewDishesProgressive(5, userProfile, (retryDish) => {
+                        setAvailableDishes(prev => {
+                            if (prev.some(d => d.name.toLowerCase() === retryDish.name.toLowerCase())) return prev;
+                            return [...prev, retryDish];
+                        });
+                    }, 'Surprise', avoidNames).finally(() => setFetchingMore(false));
+                } else {
+                    setFetchingMore(false);
+                }
+            }, 1000); // 1s buffer for state propogation
+
+        } catch (e) {
+            console.error("Manual fetch failed", e);
+            setFetchingMore(false);
+        }
+    }, [availableDishes, approvedDishes, userProfile, setFetchingMore, setAvailableDishes]);
 
     const isCookView = useMemo(() => new URLSearchParams(window.location.search).get('view') === 'cook', []);
     if (isCookView) return <CookView />;
@@ -315,6 +353,36 @@ const Dashboard: React.FC = () => {
             />
         );
     }
+
+    const handleFactoryReset = async () => {
+        if (!window.confirm("Are you sure? This will wipe all data and cannot be undone.")) return;
+
+        try {
+            // 1. Sign out of Firebase (clears IndexedDB auth)
+            const { auth } = await import('../lib/firebase');
+            await auth.signOut();
+
+            // 2. Clear Local Persistence
+            localStorage.clear();
+            sessionStorage.clear();
+
+            // 3. Clear IndexedDB (Firebase often uses this)
+            if (window.indexedDB && window.indexedDB.databases) {
+                const dbs = await window.indexedDB.databases();
+                dbs.forEach(db => {
+                    if (db.name) window.indexedDB.deleteDatabase(db.name);
+                });
+            }
+
+            // 4. Hard Redirect to Root
+            window.location.href = '/';
+        } catch (e) {
+            console.error("Factory Reset failed:", e);
+            // Fallback
+            localStorage.clear();
+            window.location.reload();
+        }
+    };
 
     return (
         <div className="h-screen flex flex-col bg-background text-ink overflow-hidden selection:bg-brand-100 selection:text-brand-900 font-sans">
@@ -370,6 +438,7 @@ const Dashboard: React.FC = () => {
                                 userProfile={userProfile}
                                 fetchingMore={fetchingMore}
                                 initialImportTab={initialImportTab}
+                                onRequestMore={handleRequestMore}
                             />
                         )}
                         {view === AppView.Planner && <WeeklyPlanner approvedDishes={approvedDishes} userProfile={userProfile} onPlanUpdate={setWeeklyPlan} onRequestMoreDishes={() => { }} onPublish={() => setShowReceipt(true)} pantryStock={pantryStock} onDishClick={(dish) => setModifyingDish(dish)} />}
@@ -378,7 +447,7 @@ const Dashboard: React.FC = () => {
                         }} onPrintTicket={() => setShowReceipt(true)} />}
                         {view === AppView.Pantry && <PantryView pantryStock={pantryStock} onToggleItem={togglePantryItem} onBatchAdd={(items) => setPantryStock(prev => items.reduce((acc, item) => addPantryItem(acc, { name: item }), prev))} onClear={clearPantry} onCookFromPantry={() => { setInitialImportTab('pantry'); setView(AppView.Swipe); }} />}
                         {view === AppView.Journal && <BlogView />}
-                        {view === AppView.Profile && <ProfileView userProfile={userProfile} onUpdateProfile={setUserProfile} onFactoryReset={() => { localStorage.clear(); window.location.reload(); }} />}
+                        {view === AppView.Profile && <ProfileView userProfile={userProfile} onUpdateProfile={setUserProfile} onFactoryReset={handleFactoryReset} />}
                     </motion.div>
                 </AnimatePresence>
             </div>

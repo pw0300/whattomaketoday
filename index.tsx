@@ -1,6 +1,7 @@
+import './src/polyfills';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
+import App from './MainApp';
 import './index.css';
 
 // BOUNTY FIX: Suppress logs in production
